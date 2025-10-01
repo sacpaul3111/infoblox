@@ -1,5 +1,5 @@
 # .gitlab-ci.yml
-# Enhanced GitLab CI configuration with Playbook Selector and CSV Input
+# Enhanced GitLab CI configuration for CSV with Headers
 
 spec:
   inputs:
@@ -12,15 +12,28 @@ spec:
         - "etsl"
         - "nhq"
         - "enterprise"
+    record_type:
+      type: string
+      description: "Select the DNS record type"
+      default: "a_record"
+      options:
+        - "a_record"
+        - "aaaa_record"
+        - "cname_record"
+        - "fixed_address"
+        - "host_record"
+        - "mx_record"
+        - "network"
+        - "ptr_record"
+        - "srv_record"
+        - "txt_record"
+        - "nios_zone"
 ---
 image: $CI_REGISTRY_IMAGE/infoblox-runner:latest
 
 variables:
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: "/certs"
-
-  # Multiple Record Types Support (no longer needed - detected from CSV data)
-  # RECORD_TYPE is now automatically detected from CSV prefixes
 
   OPERATION_TYPE:
     value: "add"
@@ -29,32 +42,17 @@ variables:
       - "delete"
     description: "Select operation: add (present state) or delete (absent state)"
 
-  # CSV Data Input - Supports Multiple Record Types
+  # CSV Data Input with Headers
   CSV_DATA:
     value: ""
     description: |
-      Paste CSV data with record type prefix on each line.
-      Format: record_type,column1,column2,column3,...
-
-      Single Record Type Example:
-      a_record,webserver1.example.com,192.168.1.10,production,Web server
-      a_record,dbserver1.example.com,192.168.1.11,production,Database
-
-      Multiple Record Types Example:
-      a_record,server1.example.com,192.168.1.10,production,Web server
-      a_record,server2.example.com,192.168.1.11,production,App server
-      cname_record,www.example.com,server1.example.com,production,Website
-      cname_record,api.example.com,server2.example.com,production,API
-      host_record,mail.example.com,production,192.168.1.50,Mail server
-
-      Available record types:
-      a_record, aaaa_record, cname_record, fixed_address, host_record,
-      mx_record, network, ptr_record, network_range, srv_record,
-      txt_record, nios_zone
-
+      Paste CSV data WITH HEADERS for the selected record type.
+      
+      A Record Example:
+      name,ipv4addr,view,comment,Environment,Owner,Location,Department
+      webserver1.example.com,192.168.1.10,production,Web server,prod,teamA,DataCenter1,IT
+      
       Max: 10000 characters.
-      Column order is flexible - processor maps by column name.
-      No need to follow any specific order for record types.
 
 stages:
   - build-container
@@ -64,223 +62,18 @@ stages:
   - deploy
   - post-implementation
 
-# Ensures the pipeline only runs when triggered manually
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'web'
       when: always
     - when: never
 
-# Build and cache custom container with all dependencies
-build_container:
-  stage: build-container
-  image:
-    name: gcr.io/kaniko-project/executor:v1.9.0-debug
-    entrypoint: [""]
-  script:
-    - |
-      # Create docker config for registry authentication
-      mkdir -p /kaniko/.docker
-      echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
-
-      echo "Building custom Infoblox runner container with Kaniko..."
-
-      # Build and push using kaniko
-      /kaniko/executor \
-        --context "${CI_PROJECT_DIR}" \
-        --dockerfile "${CI_PROJECT_DIR}/Dockerfile" \
-        --destination "${CI_REGISTRY_IMAGE}/infoblox-runner:latest" \
-        --cache=true \
-        --cache-ttl=168h
-
-      echo "Container built and pushed successfully"
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'web'
-      changes:
-        - Dockerfile
-      when: always
-    - if: $CI_PIPELINE_SOURCE == 'web'
-      when: manual
-    - when: never
-  tags:
-    - aws-eks-elz-ent-ens-01-01
-
-# Enhanced File Processing Stage
-file_processing:
-  stage: file-processing
-  script:
-    - *common_script
-    - |
-      echo "=========================================="
-      echo "  INFOBLOX RECORD PROCESSING PIPELINE"
-      echo "=========================================="
-      echo "Target Grid: $GRID_HOST"
-      echo "Operation: $OPERATION_TYPE"
-      echo "=========================================="
-      echo ""
-
-      # Install required Python packages
-      echo "[1/6] Installing dependencies..."
-      pip3 install pandas openpyxl >/dev/null 2>&1
-
-      # Validate CSV_DATA input
-      echo "[2/6] Validating input data..."
-      if [ -z "$CSV_DATA" ]; then
-        echo ""
-        echo "ERROR: CSV_DATA is empty!"
-        echo ""
-        echo "Please provide CSV data with record type prefix."
-        echo ""
-        echo "Expected format:"
-        echo "----------------------------------------"
-        echo "record_type,column1,column2,column3,..."
-        echo ""
-        echo "Example:"
-        echo "a_record,server1.example.com,192.168.1.10,production,Web server"
-        echo "cname_record,www.example.com,server1.example.com,production,Website"
-        echo "----------------------------------------"
-        echo ""
-        exit 1
-      fi
-
-      # Check character limit
-      char_count=$(echo -n "$CSV_DATA" | wc -c)
-      echo "   Input size: $char_count characters"
-
-      CHAR_LIMIT=10000
-      if [ $char_count -gt $CHAR_LIMIT ]; then
-        echo ""
-        echo "ERROR: Input exceeds character limit!"
-        echo "   Current: $char_count characters"
-        echo "   Maximum: $CHAR_LIMIT characters"
-        echo "   Excess: $((char_count - CHAR_LIMIT)) characters"
-        echo ""
-        exit 1
-      fi
-
-      # Parse and group records by type
-      echo "[3/6] Parsing and grouping records by type..."
-      mkdir -p input
-
-      # Create a Python script to parse prefixed CSV
-      cat > parse_csv.py << 'PYEOF'
-import sys
-from collections import defaultdict
-
-csv_data = sys.stdin.read()
-records_by_type = defaultdict(list)
-
-for line in csv_data.strip().split('\n'):
-    if not line.strip():
-        continue
-    parts = line.split(',', 1)
-    if len(parts) < 2:
-        print(f"Warning: Skipping invalid line: {line}", file=sys.stderr)
-        continue
-
-    record_type = parts[0].strip()
-    record_data = parts[1].strip()
-    records_by_type[record_type].append(record_data)
-
-# Output grouped records
-for record_type, records in records_by_type.items():
-    print(f"{record_type}|{len(records)}")
-
-# Save to separate files
-import os
-for record_type, records in records_by_type.items():
-    filename = f"input/{record_type}.csv"
-    with open(filename, 'w') as f:
-        f.write('\n'.join(records))
-    print(f"Created: {filename}", file=sys.stderr)
-PYEOF
-
-      # Parse CSV data
-      echo "$CSV_DATA" | python3 parse_csv.py > record_summary.txt 2>parse_log.txt
-
-      cat parse_log.txt
-      echo ""
-
-      # Display summary
-      echo "Record type summary:"
-      echo "----------------------------------------"
-      cat record_summary.txt
-      echo "----------------------------------------"
-      echo ""
-
-      # Store record types for later stages
-      record_types=$(cat record_summary.txt | cut -d'|' -f1 | tr '\n' ',' | sed 's/,$//')
-      echo "$record_types" > detected_record_types.txt
-      echo "Detected record types: $record_types"
-      echo ""
-
-      # Show file preview
-      echo "[4/6] Input data preview:"
-      echo "----------------------------------------"
-      for csv_file in input/*.csv; do
-        if [ -f "$csv_file" ]; then
-          echo "File: $(basename $csv_file)"
-          head -3 "$csv_file"
-          echo ""
-        fi
-      done
-      echo "----------------------------------------"
-      echo ""
-
-      # Process each record type
-      echo "[5/6] Processing records..."
-      for csv_file in input/*.csv; do
-        if [ ! -f "$csv_file" ]; then
-          continue
-        fi
-
-        record_type=$(basename "$csv_file" .csv)
-        echo ""
-        echo "Processing: $record_type"
-        echo "  File: $csv_file"
-
-        python3 utils/infoblox_record_processor.py \
-          "$csv_file" \
-          --grid-host "$GRID_HOST" \
-          --record-type "$record_type"
-
-        if [ $? -ne 0 ]; then
-          echo "  [ERROR] Failed to process $record_type"
-          exit 1
-        fi
-        echo "  [OK] Success"
-      done
-
-      echo ""
-      echo "=========================================="
-      echo "  PROCESSING COMPLETE"
-      echo "=========================================="
-      echo "Generated files:"
-      find prod_changes/$GRID_HOST -name "*.json" -type f
-      echo ""
-      echo "Records will be deployed to: $GRID_HOST"
-      echo "Playbooks to execute:"
-      for rtype in $(echo $record_types | tr ',' ' '); do
-        echo "  - playbooks/nios_${rtype}.yml"
-      done
-      echo "=========================================="
-
-  artifacts:
-    paths:
-      - prod_changes/
-      - input/
-      - detected_record_types.txt
-    expire_in: 1 hour
-  tags:
-    - aws-eks-elz-ent-ens-01-01
-
-# Common script section for 4-grid support
 .common_script: &common_script
   - |
     echo "Starting Common Script"
     echo "Environment input: $[[ inputs.environment ]]"
-
-    # Set GRID_HOST environment variable
+    echo "Record type input: $[[ inputs.record_type ]]"
+    
     case "$[[ inputs.environment ]]" in
       cabgridmgr)
         export GRID_URL="https://10.74.3.80"
@@ -315,11 +108,156 @@ PYEOF
         exit 1
         ;;
     esac
-
+    
+    export RECORD_TYPE="$[[ inputs.record_type ]]"
     echo "Selected environment: $[[ inputs.environment ]]"
+    echo "Selected record type: $RECORD_TYPE"
     echo "Using Grid URL: $GRID_URL"
     echo "Using Grid Host: $GRID_HOST"
-    echo "GRID_HOST variable set for scripts: $GRID_HOST"
+
+build_container:
+  stage: build-container
+  image:
+    name: gcr.io/kaniko-project/executor:v1.9.0-debug
+    entrypoint: [""]
+  script:
+    - |
+      mkdir -p /kaniko/.docker
+      echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
+      
+      echo "Building custom Infoblox runner container with Kaniko..."
+      
+      /kaniko/executor \
+        --context "${CI_PROJECT_DIR}" \
+        --dockerfile "${CI_PROJECT_DIR}/Dockerfile" \
+        --destination "${CI_REGISTRY_IMAGE}/infoblox-runner:latest" \
+        --cache=true \
+        --cache-ttl=168h
+      
+      echo "Container built and pushed successfully"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web'
+      changes:
+        - Dockerfile
+      when: always
+    - if: $CI_PIPELINE_SOURCE == 'web'
+      when: manual
+    - when: never
+  tags:
+    - aws-eks-elz-ent-ens-01-01
+
+file_processing:
+  stage: file-processing
+  script:
+    - *common_script
+    - |
+      echo "=========================================="
+      echo "  INFOBLOX RECORD PROCESSING PIPELINE"
+      echo "=========================================="
+      echo "Target Grid: $GRID_HOST"
+      echo "Record Type: $RECORD_TYPE"
+      echo "Operation: $OPERATION_TYPE"
+      echo "=========================================="
+      echo ""
+      
+      echo "[1/5] Installing dependencies..."
+      pip3 install pandas openpyxl >/dev/null 2>&1
+      
+      echo "[2/5] Validating input data..."
+      if [ -z "$CSV_DATA" ]; then
+        echo ""
+        echo "ERROR: CSV_DATA is empty!"
+        echo ""
+        echo "Please provide CSV data with headers."
+        echo ""
+        echo "Expected format:"
+        echo "----------------------------------------"
+        echo "name,ipv4addr,view,comment,Environment,Owner,Location,Department"
+        echo "webserver1.example.com,192.168.1.10,production,Web server,prod,teamA,DataCenter1,IT"
+        echo "----------------------------------------"
+        echo ""
+        exit 1
+      fi
+      
+      char_count=$(echo -n "$CSV_DATA" | wc -c)
+      echo "   Input size: $char_count characters"
+      
+      CHAR_LIMIT=10000
+      if [ $char_count -gt $CHAR_LIMIT ]; then
+        echo ""
+        echo "ERROR: Input exceeds character limit!"
+        echo "   Current: $char_count characters"
+        echo "   Maximum: $CHAR_LIMIT characters"
+        echo "   Excess: $((char_count - CHAR_LIMIT)) characters"
+        echo ""
+        exit 1
+      fi
+      
+      echo "[3/5] Saving CSV data..."
+      mkdir -p input
+      csv_file="input/${RECORD_TYPE}.csv"
+      echo "$CSV_DATA" > "$csv_file"
+      
+      record_count=$(($(wc -l < "$csv_file") - 1))
+      echo "   Saved to: $csv_file"
+      echo "   Records to process: $record_count"
+      echo ""
+      
+      echo "[4/5] Input data preview:"
+      echo "----------------------------------------"
+      head -5 "$csv_file"
+      if [ $(wc -l < "$csv_file") -gt 5 ]; then
+        echo "... (showing first 5 lines)"
+      fi
+      echo "----------------------------------------"
+      echo ""
+      
+      echo "[5/5] Processing records..."
+      python3 infoblox_mvp1/utils/infoblox_record_processor.py \
+        "$csv_file" \
+        --grid-host "$GRID_HOST" \
+        --record-type "$RECORD_TYPE" \
+        --output-dir "infoblox_mvp1/prod_changes"
+      
+      if [ $? -ne 0 ]; then
+        echo "  [ERROR] Failed to process $RECORD_TYPE"
+        exit 1
+      fi
+      
+      json_file="infoblox_mvp1/prod_changes/$GRID_HOST/${RECORD_TYPE}.json"
+      if [ -f "$json_file" ]; then
+        processed_count=$(python3 -c "import json; print(len(json.load(open('$json_file'))))")
+        echo ""
+        echo "=========================================="
+        echo "  PROCESSING COMPLETE"
+        echo "=========================================="
+        echo "Processed: $processed_count records"
+        echo "Output file: $json_file"
+        echo "Record type: $RECORD_TYPE"
+        echo "Target grid: $GRID_HOST"
+        echo ""
+        
+        echo "JSON output preview:"
+        echo "----------------------------------------"
+        python3 -c "import json; import sys; data=json.load(open('$json_file')); print(json.dumps(data[:2] if len(data) > 2 else data, indent=2))"
+        if [ $processed_count -gt 2 ]; then
+          echo "... (showing first 2 records)"
+        fi
+        echo "----------------------------------------"
+      else
+        echo "[ERROR] JSON output file not created"
+        exit 1
+      fi
+      
+      echo "=========================================="
+
+  artifacts:
+    paths:
+      - infoblox_mvp1/prod_changes/
+      - input/
+    expire_in: 1 hour
+  tags:
+    - aws-eks-elz-ent-ens-01-01
 
 server_connection_test:
   stage: pre-implementation
@@ -328,14 +266,12 @@ server_connection_test:
     - |
       echo "=== Network Connectivity Test ==="
       echo "Target Grid: $GRID_HOST ($GRID_HOST_IP)"
-
-      # Ensure curl is installed
+      
       if ! command -v curl > /dev/null 2>&1; then
         echo "Installing curl..."
         apt-get update && apt-get install -y curl
       fi
-
-      # Test connectivity
+      
       echo "Testing connectivity to $GRID_URL..."
       if curl -s -k --head --request GET "$GRID_URL/ui" | grep -E "200 OK|302 Found" > /dev/null; then
         echo "[OK] Grid manager is reachable"
@@ -348,70 +284,91 @@ server_connection_test:
   tags:
     - aws-eks-elz-ent-ens-01-01
 
-# JSON validation for multiple record types
+pre_check:
+  stage: pre-implementation
+  script:
+    - *common_script
+    - |
+      echo "=== Pre-Check Validation ==="
+      echo "Grid: $GRID_HOST"
+      echo "Record Type: $RECORD_TYPE"
+      
+      export infoblox_username="$INFOBLOX_USERNAME"
+      export infoblox_password="$INFOBLOX_PASSWORD"
+
+      json_file="infoblox_mvp1/prod_changes/$GRID_HOST/${RECORD_TYPE}.json"
+      
+      if [ ! -f "$json_file" ]; then
+        echo "[ERROR] JSON file not found: $json_file"
+        exit 1
+      fi
+      
+      echo "Running pre-check for: $RECORD_TYPE"
+      
+      python3 infoblox_mvp1/utils/pre_check.py \
+        --grid-host "$GRID_HOST" \
+        --record-type "$RECORD_TYPE" \
+        --json-file "$json_file"
+      
+      if [ $? -ne 0 ]; then
+        echo "[ERROR] Pre-check failed"
+        exit 1
+      fi
+      
+      echo "[OK] Pre-check passed"
+  tags:
+    - aws-eks-elz-ent-ens-01-01
+
 json_validation:
   stage: pre-implementation
   script:
     - *common_script
     - |
       echo "=== JSON Validation ==="
-
-      # Load detected record types
-      if [ ! -f "detected_record_types.txt" ]; then
-        echo "[ERROR] detected_record_types.txt not found"
+      echo "Record type: $RECORD_TYPE"
+      
+      json_file="infoblox_mvp1/prod_changes/$GRID_HOST/${RECORD_TYPE}.json"
+      
+      if [ ! -f "$json_file" ]; then
+        echo "[ERROR] JSON file not found: $json_file"
         exit 1
       fi
-
-      record_types=$(cat detected_record_types.txt)
-      echo "Validating record types: $record_types"
-      echo ""
-
-      total_records=0
-      validation_failed=0
-
-      for record_type in $(echo $record_types | tr ',' ' '); do
-        echo "Validating: $record_type"
-        json_file="prod_changes/$GRID_HOST/${record_type}.json"
-
-        if [ ! -f "$json_file" ]; then
-          echo "  [ERROR] JSON file not found: $json_file"
-          validation_failed=1
-          continue
-        fi
-
-        if [ ! -s "$json_file" ]; then
-          echo "  [ERROR] JSON file is empty"
-          validation_failed=1
-          continue
-        fi
-
-        if python3 -c "import json; json.load(open('$json_file'))" 2>/dev/null; then
-          record_count=$(python3 -c "import json; print(len(json.load(open('$json_file'))))")
-          echo "  [OK] Valid JSON with $record_count record(s)"
-          total_records=$((total_records + record_count))
-        else
-          echo "  [ERROR] Invalid JSON format"
-          validation_failed=1
-        fi
+      
+      if [ ! -s "$json_file" ]; then
+        echo "[ERROR] JSON file is empty"
+        exit 1
+      fi
+      
+      if python3 -c "import json; json.load(open('$json_file'))" 2>/dev/null; then
+        record_count=$(python3 -c "import json; print(len(json.load(open('$json_file'))))")
+        echo "[OK] Valid JSON with $record_count record(s)"
+        
         echo ""
-      done
+        echo "Extensible Attributes Summary:"
+        python3 -c "
+        import json
+        data = json.load(open('$json_file'))
+        extattrs_summary = {}
+        for record in data:
+            if 'extattrs' in record:
+                for key, value in record['extattrs'].items():
+                    if key not in extattrs_summary:
+                        extattrs_summary[key] = set()
+                    extattrs_summary[key].add(value)
 
-      echo "=========================================="
-      echo "Validation Summary:"
-      echo "  Total record types: $(echo $record_types | tr ',' ' ' | wc -w)"
-      echo "  Total records: $total_records"
-      echo "=========================================="
+        for key, values in extattrs_summary.items():
+            print(f'  {key}: {', '.join(sorted(values))}')
+                "
+              else
+                echo "[ERROR] Invalid JSON format"
+                exit 1
+              fi
+              
+              echo ""
+              echo "[OK] Validation passed"
+          tags:
+            - aws-eks-elz-ent-ens-01-01
 
-      if [ $validation_failed -eq 1 ]; then
-        echo "[ERROR] Validation failed for one or more record types"
-        exit 1
-      fi
-
-      echo "[OK] All validations passed"
-  tags:
-    - aws-eks-elz-ent-ens-01-01
-
-# Validation checkpoint
 validation_checkpoint:
   stage: validation-checkpoint
   script:
@@ -421,12 +378,7 @@ validation_checkpoint:
       echo "  PRE-IMPLEMENTATION VALIDATION COMPLETE"
       echo "==========================================================="
       echo "Grid: $GRID_HOST"
-
-      if [ -f "detected_record_types.txt" ]; then
-        record_types=$(cat detected_record_types.txt)
-        echo "Record Types: $record_types"
-      fi
-
+      echo "Record Type: $RECORD_TYPE"
       echo "Operation: $OPERATION_TYPE"
       echo ""
       echo "Ready to deploy. Run deployment stage manually to proceed."
@@ -435,7 +387,6 @@ validation_checkpoint:
     - aws-eks-elz-ent-ens-01-01
   when: on_success
 
-# Enhanced Ansible playbook execution with multiple playbook support
 run_ansible_playbook:
   stage: deploy
   script:
@@ -445,32 +396,20 @@ run_ansible_playbook:
       echo "  ANSIBLE DEPLOYMENT"
       echo "=========================================="
       echo "Grid: $GRID_HOST"
+      echo "Record Type: $RECORD_TYPE"
       echo "Operation: $OPERATION_TYPE"
-
-      # Load detected record types
-      if [ ! -f "detected_record_types.txt" ]; then
-        echo "[ERROR] detected_record_types.txt not found"
-        exit 1
-      fi
-
-      record_types=$(cat detected_record_types.txt)
-      echo "Record Types: $record_types"
       echo "=========================================="
       echo ""
-
-      # Set up Ansible environment
+      
       export ANSIBLE_HOST_KEY_CHECKING=False
       export ANSIBLE_DEPRECATION_WARNINGS=False
-
-      # Install required packages
+      
       echo "Installing dependencies..."
       pip3 install --upgrade pip >/dev/null 2>&1
       pip3 install infoblox-client netaddr pyyaml requests urllib3 >/dev/null 2>&1
-
-      # Setup Ansible collections
+      
       mkdir -p ~/.ansible/collections/ansible_collections/infoblox/nios_modules/plugins/modules
-
-      # Create provider configuration
+      
       cat > provider_config.json << EOF
       {
         "clean_provider": {
@@ -486,107 +425,87 @@ run_ansible_playbook:
         "grid_host": "$GRID_HOST"
       }
       EOF
-
+      
       echo ""
-
-      # Execute playbooks for each record type
-      deployment_failed=0
-      success_count=0
-      failed_count=0
-
-      for record_type in $(echo $record_types | tr ',' ' '); do
-        echo "=========================================="
-        echo "Deploying: $record_type"
-        echo "=========================================="
-
-        playbook_file="playbooks/nios_${record_type}.yml"
-
-        if [ ! -f "$playbook_file" ]; then
-          echo "[ERROR] Playbook not found: $playbook_file"
-          failed_count=$((failed_count + 1))
-          deployment_failed=1
-          echo ""
-          continue
-        fi
-
-        echo "Playbook: $playbook_file"
-        echo ""
-
-        # Run the specific playbook for the record type
-        ansible-playbook -i localhost, \
-          --extra-vars "@provider_config.json" \
-          -e "operation=$OPERATION_TYPE" \
-          -e "ansible_connection=local" \
-          -e "ansible_python_interpreter=/usr/bin/python3" \
-          "$playbook_file" \
-          --verbose
-
-        playbook_result=$?
-
-        if [ $playbook_result -eq 0 ]; then
-          echo ""
-          echo "[OK] $record_type deployment successful"
-          success_count=$((success_count + 1))
-        else
-          echo ""
-          echo "[ERROR] $record_type deployment failed"
-          failed_count=$((failed_count + 1))
-          deployment_failed=1
-        fi
-
-        echo ""
-      done
-
-      # Clean up sensitive files
-      rm -f provider_config.json
-
-      echo "=========================================="
-      echo "  DEPLOYMENT SUMMARY"
-      echo "=========================================="
-      echo "Successful: $success_count"
-      echo "Failed: $failed_count"
-      echo "Total: $(echo $record_types | tr ',' ' ' | wc -w)"
-      echo "=========================================="
-
-      if [ $deployment_failed -eq 1 ]; then
-        echo ""
-        echo "[ERROR] One or more deployments failed"
+      
+      playbook_file="infoblox_mvp1/playbooks/nios_${RECORD_TYPE}.yml"
+      
+      if [ ! -f "$playbook_file" ]; then
+        echo "[ERROR] Playbook not found: $playbook_file"
         exit 1
       fi
-
+      
+      echo "Executing playbook: $playbook_file"
       echo ""
-      echo "[OK] All deployments successful"
+      
+      ansible-playbook -i localhost, \
+        --extra-vars "@provider_config.json" \
+        -e "operation=$OPERATION_TYPE" \
+        -e "ansible_connection=local" \
+        -e "ansible_python_interpreter=/usr/bin/python3" \
+        "$playbook_file" \
+        --verbose
+      
+      playbook_result=$?
+      
+      rm -f provider_config.json
+      
+      if [ $playbook_result -eq 0 ]; then
+        echo ""
+        echo "[OK] Deployment successful"
+      else
+        echo ""
+        echo "[ERROR] Deployment failed"
+        exit 1
+      fi
+      
+      echo "=========================================="
 
   tags:
     - aws-eks-elz-ent-ens-01-01
   when: manual
   allow_failure: false
 
-# Post-implementation cleanup
 post_implementation:
   stage: post-implementation
   script:
     - *common_script
     - |
-      echo "=== Post-Implementation Cleanup ==="
+      echo "=== Post-Implementation Summary ==="
       echo "Grid: $GRID_HOST"
+      echo "Record Type: $RECORD_TYPE"
+      echo "Operation: $OPERATION_TYPE"
+      
+      export infoblox_username="$INFOBLOX_USERNAME"
+      export infoblox_password="$INFOBLOX_PASSWORD"
 
-      if [ -f "detected_record_types.txt" ]; then
-        record_types=$(cat detected_record_types.txt)
-        echo "Record Types: $record_types"
+      json_file="infoblox_mvp1/prod_changes/$GRID_HOST/${RECORD_TYPE}.json"
+      
+      if [ -f "$json_file" ]; then
+        record_count=$(python3 -c "import json; print(len(json.load(open('$json_file'))))")
+        echo "Records processed: $record_count"
       fi
-
-      # Optional: Run post-check verification
-      # Uncomment if you have post-check scripts
-      # for record_type in $(echo $record_types | tr ',' ' '); do
-      #   python3 utils/post_check.py --grid-host "$GRID_HOST" --record-type "$record_type"
-      # done
-
+      
+      echo ""
+      echo "Running post-deployment verification..."
+      
+      python3 infoblox_mvp1/utils/post_check.py \
+        --grid-host "$GRID_HOST" \
+        --record-type "$RECORD_TYPE" \
+        --json-file "$json_file"
+      
+      if [ $? -ne 0 ]; then
+        echo "[WARNING] Post-check failed"
+      else
+        echo "[OK] Post-check passed"
+      fi
+      
+      echo ""
       echo "[OK] Deployment complete"
       echo ""
       echo "Summary:"
       echo "  - Grid: $GRID_HOST"
-      echo "  - Record Types: $record_types"
+      echo "  - Record Type: $RECORD_TYPE"
       echo "  - Operation: $OPERATION_TYPE"
       echo "  - Status: Success"
 
