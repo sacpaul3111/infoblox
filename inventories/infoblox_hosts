@@ -1,0 +1,24 @@
+---
+# infoblox/inventories/infoblox_hosts
+
+[infoblox]
+ansible_connection=local
+
+[CrashAndBurn]
+cabgridmgr.amfam.com ansible_host=10.74.3.80
+
+[AmFam]
+grdmgr.amfam.com ansible_host=10.74.70.63
+
+[Enterprise]
+entgridmgr.amfam.com ansible_host=10.186.164.10
+
+
+[infoblox:children]
+CrashAndBurn
+AmFam
+Enterprise
+
+[infoblox:vars]
+infoblox_api_user="{{ lookup('env', 'INFOBLOX_USERNAME') }}"
+infoblox_api_password="{{ lookup('env', 'INFOBLOX_PASSWORD') }}"

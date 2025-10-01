@@ -1,0 +1,6 @@
+name,view,ipv4addrs,ipv6addrs,comment,configure_for_dns,Environment,Owner,Location,Department
+mailserver1.example.com,production,192.168.1.50;192.168.1.51,,Mail server with multiple IPs,true,prod,teamB,DataCenter1,IT
+apphost1.example.com,production,10.0.1.100,2001:0db8:85a3::8a2e:0370:7340,Dual stack application host,true,prod,teamA,DataCenter2,IT
+dbhost1.example.com,production,192.168.2.100;192.168.2.101,,Database cluster host,true,prod,teamB,DataCenter1,IT
+testhost1.example.com,test,192.168.10.50,,Test host,true,test,automation,Lab,QA
+devhost1.example.com,development,10.10.1.25,,Development host,true,dev,devteam,Office,Engineering

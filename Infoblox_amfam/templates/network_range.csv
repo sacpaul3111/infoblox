@@ -1,0 +1,6 @@
+network,start_addr,end_addr,name,network_view,comment,disable,server_association_type,Environment,Owner,Location,Department
+192.168.1.0/24,192.168.1.100,192.168.1.200,DHCP Pool 1,default,Production DHCP range for workstations,false,MEMBER,prod,network-team,DataCenter1,IT
+192.168.2.0/24,192.168.2.100,192.168.2.200,DHCP Pool 2,default,Production DHCP range for servers,false,MEMBER,prod,network-team,DataCenter2,IT
+10.0.0.0/16,10.0.10.1,10.0.10.254,Corporate DHCP,default,Corporate network DHCP pool,false,MEMBER,prod,network-team,HQ,IT
+172.16.0.0/24,172.16.0.50,172.16.0.100,Test DHCP Pool,default,Test environment DHCP range,false,MEMBER,test,automation,Lab,QA
+10.10.0.0/16,10.10.1.10,10.10.1.250,Dev DHCP Pool,default,Development network DHCP range,false,MEMBER,dev,devteam,Office,Engineering

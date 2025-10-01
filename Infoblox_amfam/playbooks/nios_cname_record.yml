@@ -1,0 +1,42 @@
+---
+# infoblox/playbooks/add/nios_cname_record.yml
+
+# This playbook manages Infoblox NIOS CNAME records.
+
+- name: Read CNAME record data from JSON file using slurp
+  ansible.builtin.slurp:
+    path: "add/prod_changes/{{ grid_host }}/cname_record.json"
+  register: slurped_cname_record
+
+- name: Set fact from slurped JSON data
+  ansible.builtin.set_fact:
+    nios_cname_record_desired: "{{ slurped_cname_record['content'] | b64decode | from_json }}"
+    operation_type: "{{ operation | default('add') }}"
+
+- name: Debug nios_cname_record_desired
+  debug:
+    var: nios_cname_record_desired
+
+- name: Ensure CNAME records are present
+  infoblox.nios_modules.nios_cname_record:
+    provider: "{{ clean_provider }}"
+    name: "{{ item.name }}"
+    canonical: "{{ item.canonical }}"
+    comment: "{{ item.comment | default('') }}"
+    extattrs: "{{ item.extattrs | default({}) }}"
+    ttl: "{{ item.ttl | default(omit) }}"
+    view: "{{ item.view }}"
+    state: "{{ 'present' if operation_type == 'add' else 'absent' }}"
+  loop: "{{ nios_cname_record_desired }}"
+  register: add_result
+  ignore_errors: false
+
+- name: Display Add CNAME record errors
+  debug:
+    var: item
+  loop: "{{ add_result.results }}"
+  when: item.failed
+
+- name: Playbook completed
+  debug:
+    msg: "Playbook completed: CNAME record objects process completed."

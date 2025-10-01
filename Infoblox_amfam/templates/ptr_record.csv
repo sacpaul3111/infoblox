@@ -1,0 +1,6 @@
+name,ptrdname,view,ipv4addr,ipv6addr,comment,ttl,Environment,Owner,Location,Department
+10.1.168.192.in-addr.arpa,webserver1.example.com,production,192.168.1.10,,Web server reverse DNS,3600,prod,teamA,DataCenter1,IT
+11.1.168.192.in-addr.arpa,dbserver1.example.com,production,192.168.1.11,,Database server reverse DNS,3600,prod,teamB,DataCenter1,IT
+12.1.168.192.in-addr.arpa,appserver1.example.com,production,192.168.1.12,,Application server reverse DNS,3600,prod,teamA,DataCenter2,IT
+20.1.168.192.in-addr.arpa,testserver1.example.com,test,192.168.1.20,,Test server reverse DNS,600,test,automation,Lab,QA
+10.1.0.10.in-addr.arpa,devserver1.example.com,development,10.0.1.10,,Development server reverse DNS,1800,dev,devteam,Office,Engineering

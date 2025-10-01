@@ -1,0 +1,38 @@
+---
+# infoblox/playbooks/add/nios_srv_record.yml
+
+# This playbook manages Infoblox NIOS SRV records.
+
+- name: Read SRV record data from JSON file
+  ansible.builtin.set_fact:
+    nios_srv_record_desired: "{{ lookup('file', 'add/prod_changes/{{ grid_host }}/srv_record.json') | from_json }}"
+
+- name: Debug JSON file contents (raw)
+  ansible.builtin.debug:
+    msg: "JSON file contents (raw): {{ lookup('file', 'add/prod_changes/{{ grid_host }}/srv_record.json') }}"
+
+- name: Debug nios_srv_record_desired
+  ansible.builtin.debug:
+    var: nios_srv_record_desired
+
+- name: Ensure SRV records are present
+  infoblox.nios_modules.nios_srv_record:
+    provider: "{{ clean_provider }}"
+    name: "{{ item.name }}"
+    port: "{{ item.port }}"
+    target: "{{ item.target }}"
+    priority: "{{ item.priority }}"
+    weight: "{{ item.weight }}"
+    view: "{{ item.view }}"
+  loop: "{{ nios_srv_record_desired }}"
+  register: add_result
+  ignore_errors: true
+
+- name: Display Add SRV record errors
+  ansible.builtin.debug:
+    var: add_result
+  when: add_result is defined and 'failed' in add_result and add_result.failed
+
+- name: Playbook completed
+  ansible.builtin.debug:
+    msg: "Playbook completed: SRV record objects process completed."

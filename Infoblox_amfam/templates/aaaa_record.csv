@@ -1,0 +1,6 @@
+name,ipv6addr,view,comment,Environment,Owner,Location,Department
+webserver1.example.com,2001:0db8:85a3:0000:0000:8a2e:0370:7334,production,Web server IPv6,prod,teamA,DataCenter1,IT
+dbserver1.example.com,2001:0db8:85a3:0000:0000:8a2e:0370:7335,production,Database server IPv6,prod,teamB,DataCenter1,IT
+appserver1.example.com,2001:0db8:85a3:0000:0000:8a2e:0370:7336,production,Application server IPv6,prod,teamA,DataCenter2,IT
+testserver1.example.com,2001:0db8:85a3:0000:0000:8a2e:0370:7337,test,Test environment IPv6,test,automation,Lab,QA
+devserver1.example.com,2001:0db8:85a3:0000:0000:8a2e:0370:7338,development,Development server IPv6,dev,devteam,Office,Engineering

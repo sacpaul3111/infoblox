@@ -1,0 +1,36 @@
+---
+# infoblox/playbooks/add/nios_mx_record.yml
+
+# This playbook manages Infoblox NIOS MX records.
+
+# Read MX record data from JSON file
+- name: Read MX record data from JSON file
+  ansible.builtin.set_fact:
+    nios_mx_record_desired: "{{ lookup('file', 'add/prod_changes/{{ grid_host }}/mx_record.json') | from_json }}"
+
+# Ensure MX records are present
+- name: Ensure MX records are present
+  infoblox.nios_modules.nios_mx_record:
+    provider: "{{ clean_provider }}"
+    name: "{{ item.name }}"
+    mail_exchanger: "{{ item.mail_exchanger }}"
+    preference: "{{ item.preference }}"
+    view: "{{ item.view | default('default') }}"
+    comment: "{{ item.comment | default(omit) }}"
+    ttl: "{{ item.ttl | default(omit) }}"
+    extattrs: "{{ item.extattrs | default(omit) }}"
+    state: present
+  loop: "{{ nios_mx_record_desired }}"
+  register: add_result
+  ignore_errors: true
+
+# Display Add MX record errors
+- name: Display Add MX record errors
+  ansible.builtin.debug:
+    var: add_result
+  when: add_result is defined and 'failed' in add_result and add_result.failed
+
+# Playbook completed
+- name: Playbook completed
+  ansible.builtin.debug:
+    msg: "Playbook completed: MX record objects process completed."

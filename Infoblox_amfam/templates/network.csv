@@ -1,0 +1,6 @@
+network,network_view,comment,routers,domain-name-servers,domain-name,Environment,Owner,Location,Department
+192.168.1.0/24,default,Production network datacenter 1,192.168.1.1,192.168.1.10;192.168.1.11,example.com,prod,network-team,DataCenter1,IT
+192.168.2.0/24,default,Production network datacenter 2,192.168.2.1,192.168.2.10;192.168.2.11,example.com,prod,network-team,DataCenter2,IT
+10.0.0.0/16,default,Internal corporate network,10.0.0.1,10.0.0.10;10.0.0.11,corp.example.com,prod,network-team,HQ,IT
+172.16.0.0/24,default,Test network,172.16.0.1,172.16.0.10,test.example.com,test,automation,Lab,QA
+10.10.0.0/16,default,Development network,10.10.0.1,10.10.0.10,dev.example.com,dev,devteam,Office,Engineering
