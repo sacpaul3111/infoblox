@@ -5,7 +5,7 @@
 
 - name: Set fact from JSON file data
   ansible.builtin.set_fact:
-    nios_a_record_desired: "{{ lookup('file', 'add/prod_changes/{{ grid_host }}/a_record.json') | from_json }}"
+    nios_a_record_desired: "{{ lookup('file', json_file) | from_json }}"
     operation_type: "{{ operation | default('add') }}"
 
 - name: Debug nios_a_record_desired
