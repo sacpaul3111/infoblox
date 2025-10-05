@@ -3,14 +3,9 @@
 
 # This playbook manages Infoblox NIOS CNAME records.
 
-- name: Read CNAME record data from JSON file using slurp
-  ansible.builtin.slurp:
-    path: "add/prod_changes/{{ grid_host }}/cname_record.json"
-  register: slurped_cname_record
-
-- name: Set fact from slurped JSON data
+- name: Set fact from JSON file data
   ansible.builtin.set_fact:
-    nios_cname_record_desired: "{{ slurped_cname_record['content'] | b64decode | from_json }}"
+    nios_cname_record_desired: "{{ lookup('file', json_file) | from_json }}"
     operation_type: "{{ operation | default('add') }}"
 
 - name: Debug nios_cname_record_desired

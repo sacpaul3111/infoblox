@@ -1,9 +1,10 @@
 ---
 # infoblox/playbooks/add/nios_network.yml
 
-- name: Read network data from JSON file
+- name: Set fact from JSON file data
   ansible.builtin.set_fact:
-    nios_network_desired: "{{ lookup('file', 'add/prod_changes/{{ grid_host }}/network.json') | from_json }}"
+    nios_network_desired: "{{ lookup('file', json_file) | from_json }}"
+    operation_type: "{{ operation | default('add') }}"
 
 - name: Define Supported DHCP Options
   ansible.builtin.set_fact:
