@@ -598,6 +598,35 @@ post_implementation:
         echo "[WARN] Failed to merge test history (non-critical)"
       fi
 
+      echo ""
+      echo "=== File Cleanup and Repository Update ==="
+
+      # Pull latest changes
+      git pull origin main
+
+      # Run file cleanup script
+      echo "Running file cleanup for $GRID_HOST..."
+      python3 infoblox_mvp1/utils/clearfilecontent.py
+
+      # Configure git
+      git config --global user.name "GitLab_Runner"
+      git config --global user.email "ens@amfam.com"
+
+      # Stage all changes
+      git add *
+
+      # Check if there are changes to commit
+      if [[ -n $(git status --porcelain) ]]; then
+        git commit -m "post-implementation cleanup for $GRID_HOST environment"
+        git remote set-url origin "https://GitLab_Runner:${GITLAB_CI_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+        git push origin HEAD:main
+        echo "[OK] Changes committed and pushed for $GRID_HOST"
+      else
+        echo "[INFO] No changes to commit for $GRID_HOST"
+      fi
+
+      echo "[OK] Post-implementation tasks completed successfully for $GRID_HOST"
+
   artifacts:
     when: always
     paths:
