@@ -1,6 +1,0 @@
-name,ipv4addr,mac,network,network_view,comment,routers,domain-name-servers,domain-name,Environment,Owner,Location,Department
-printer1,192.168.1.100,00:11:22:33:44:55,192.168.1.0/24,default,Office printer,192.168.1.1,8.8.8.8;8.8.4.4,example.com,prod,IT,Building1,Operations
-voip-phone1,192.168.2.50,AA:BB:CC:DD:EE:FF,192.168.2.0/24,default,Conference room phone,192.168.2.1,192.168.1.10,example.com,prod,telecom,Building2,Communications
-camera1,10.10.10.100,11:22:33:44:55:66,10.10.10.0/24,default,Security camera lobby,10.10.10.1,10.10.10.5,example.com,prod,security,Building1,Security
-scanner1,192.168.1.101,22:33:44:55:66:77,192.168.1.0/24,default,Document scanner,192.168.1.1,8.8.8.8,example.com,prod,IT,Building1,Operations
-badge-reader1,10.20.30.40,33:44:55:66:77:88,10.20.30.0/24,default,Main entrance badge reader,10.20.30.1,10.20.30.5,example.com,prod,security,Building1,Security

@@ -1,6 +1,0 @@
-name,port,target,priority,weight,view,comment,Environment,Owner,Location,Department
-_ldap._tcp.example.com,389,ldapserver1.example.com,10,60,production,Primary LDAP server,prod,identity-team,DataCenter1,IT
-_ldap._tcp.example.com,389,ldapserver2.example.com,20,40,production,Secondary LDAP server,prod,identity-team,DataCenter2,IT
-_sip._tcp.example.com,5060,sipserver1.example.com,10,100,production,Primary SIP server,prod,telecom,DataCenter1,Communications
-_sip._udp.example.com,5060,sipserver1.example.com,10,100,production,Primary SIP server UDP,prod,telecom,DataCenter1,Communications
-_xmpp._tcp.example.com,5222,xmppserver1.example.com,10,50,production,XMPP messaging server,prod,messaging-team,DataCenter1,IT

@@ -1,6 +1,0 @@
-fqdn,view,comment,zone_format,ns_group,grid_primary,Environment,Owner,Location,Department
-production.example.com,production,Production zone,FORWARD,default-ns-group,infoblox-primary.example.com,prod,dns-team,DataCenter1,IT
-test.example.com,test,Test environment zone,FORWARD,test-ns-group,infoblox-test.example.com,test,automation,Lab,QA
-dev.example.com,development,Development zone,FORWARD,dev-ns-group,infoblox-dev.example.com,dev,devteam,Office,Engineering
-internal.example.com,production,Internal corporate zone,FORWARD,internal-ns-group,infoblox-primary.example.com,prod,dns-team,HQ,IT
-192.168.1.in-addr.arpa,production,Reverse zone for 192.168.1.0/24,IPV4,default-ns-group,infoblox-primary.example.com,prod,dns-team,DataCenter1,IT

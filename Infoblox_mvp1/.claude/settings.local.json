@@ -5,7 +5,18 @@
       "Bash(python3:*)",
       "WebSearch",
       "Bash(xargs rm:*)",
-      "Read(//c/Users/sacpa/Projects/infoblox/**)"
+      "Read(//c/Users/sacpa/Projects/infoblox/**)",
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)",
+      "Bash(pip install:*)",
+      "Bash(robot:*)",
+      "Bash(run_comprehensive_demo.bat)",
+      "Bash(cmd /c:*)",
+      "Bash(rebot:*)",
+      "Bash(start demo_reports/pre_check/report.html)",
+      "Bash(start demo_reports/pre_check/combined_report.html)",
+      "Bash(start demo_reports/post_check/report.html)",
+      "Bash(start demo_reports/post_check/combined_report.html)"
     ],
     "deny": [],
     "ask": []

@@ -1,6 +1,0 @@
-name,text,view,comment,ttl,Environment,Owner,Location,Department
-example.com,v=spf1 include:_spf.example.com ~all,production,SPF record for email validation,3600,prod,email-team,DataCenter1,IT
-_dmarc.example.com,v=DMARC1; p=quarantine; rua=mailto:dmarc@example.com,production,DMARC policy record,3600,prod,email-team,DataCenter1,IT
-selector1._domainkey.example.com,v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GN...,production,DKIM public key,3600,prod,email-team,DataCenter1,IT
-_verification.example.com,verification-code-123456,production,Domain verification token,600,prod,devops-team,DataCenter1,IT
-test.example.com,v=test-environment,test,Test TXT record,300,test,automation,Lab,QA

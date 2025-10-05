@@ -1,6 +1,0 @@
-name,mail_exchanger,preference,view,comment,ttl,Environment,Owner,Location,Department
-example.com,mail1.example.com,10,production,Primary mail server,3600,prod,teamB,DataCenter1,IT
-example.com,mail2.example.com,20,production,Secondary mail server,3600,prod,teamB,DataCenter2,IT
-example.com,mail3.example.com,30,production,Tertiary mail server,3600,prod,teamB,DataCenter1,IT
-test.example.com,testmail.example.com,10,test,Test mail server,600,test,automation,Lab,QA
-dev.example.com,devmail.example.com,10,development,Development mail server,1800,dev,devteam,Office,Engineering

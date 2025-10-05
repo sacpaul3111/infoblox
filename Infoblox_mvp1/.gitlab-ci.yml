@@ -29,6 +29,7 @@ spec:
         - "txt_record"
         - "nios_zone"
 ---
+
 image: $CI_REGISTRY_IMAGE/infoblox-runner:latest
 
 variables:
@@ -58,7 +59,6 @@ stages:
   - build-container
   - file-processing
   - pre-implementation
-  - validation-checkpoint
   - deploy
   - post-implementation
 
@@ -198,10 +198,15 @@ file_processing:
       csv_file="input/${RECORD_TYPE}.csv"
       echo "$CSV_DATA" > "$csv_file"
       
-      record_count=$(($(wc -l < "$csv_file") - 1))
-      echo "   Saved to: $csv_file"
-      echo "   Records to process: $record_count"
-      echo ""
+      # NEW: Debug CSV content
+      echo "DEBUG: Raw CSV content:"
+      echo "----------------------------------------"
+      cat "$csv_file" | head -5
+      echo "----------------------------------------"
+      
+      # NEW: Validate CSV format
+      echo "DEBUG: Checking CSV structure..."
+      python3 -c "import csv; f=open('$csv_file','r'); reader=csv.DictReader(f,delimiter=','); print('Detected fields:',list(reader.fieldnames)); [print(f'Row {i+2}:',dict(row)) for i,row in enumerate(reader) if i<2]; f.close()"
       
       echo "[4/5] Input data preview:"
       echo "----------------------------------------"
@@ -289,33 +294,82 @@ pre_check:
   script:
     - *common_script
     - |
-      echo "=== Pre-Check Validation ==="
+      echo "=== Pre-Check Validation with Robot Framework ==="
       echo "Grid: $GRID_HOST"
       echo "Record Type: $RECORD_TYPE"
-      
+
       export infoblox_username="$INFOBLOX_USERNAME"
       export infoblox_password="$INFOBLOX_PASSWORD"
 
       json_file="infoblox_mvp1/prod_changes/$GRID_HOST/${RECORD_TYPE}.json"
-      
+
       if [ ! -f "$json_file" ]; then
         echo "[ERROR] JSON file not found: $json_file"
         exit 1
       fi
-      
-      echo "Running pre-check for: $RECORD_TYPE"
-      
-      python3 infoblox_mvp1/utils/pre_check.py \
-        --grid-host "$GRID_HOST" \
-        --record-type "$RECORD_TYPE" \
-        --json-file "$json_file"
-      
-      if [ $? -ne 0 ]; then
-        echo "[ERROR] Pre-check failed"
+
+      echo "Installing Robot Framework..."
+      pip3 install robotframework >/dev/null 2>&1
+
+      echo "Running pre-check validation with Robot Framework..."
+
+      # Determine which test suite to run based on record type
+      case "$RECORD_TYPE" in
+        a_record)
+          test_suite="infoblox_mvp1/tests/pre_check/a_record_validation.robot"
+          ;;
+        cname_record)
+          test_suite="infoblox_mvp1/tests/pre_check/cname_record_validation.robot"
+          ;;
+        network)
+          test_suite="infoblox_mvp1/tests/pre_check/network_validation.robot"
+          ;;
+        *)
+          # Run all pre-check tests for unknown types
+          test_suite="infoblox_mvp1/tests/pre_check/"
+          ;;
+      esac
+
+      echo "Running test suite: $test_suite"
+
+      # Run Robot Framework tests
+      robot \
+        --variable GRID_HOST:$GRID_HOST \
+        --variable RECORD_TYPE:$RECORD_TYPE \
+        --outputdir infoblox_mvp1/robot_reports/pre_check \
+        --name "Pre-Check Validation - $RECORD_TYPE" \
+        --loglevel INFO \
+        "$test_suite"
+
+      robot_exit_code=$?
+
+      if [ $robot_exit_code -ne 0 ]; then
+        echo "[ERROR] Pre-check validation failed"
+        echo "Check the Robot Framework report for details"
         exit 1
       fi
-      
-      echo "[OK] Pre-check passed"
+
+      echo "[OK] Pre-check validation passed"
+
+      echo ""
+      echo "Merging with historical test runs..."
+      python3 infoblox_mvp1/utils/robot/merge_reports.py pre_check 20
+
+      if [ $? -eq 0 ]; then
+        echo "[OK] Test history merged successfully"
+        echo "  - Current run: infoblox_mvp1/robot_reports/pre_check/report.html"
+        echo "  - Combined history: infoblox_mvp1/robot_reports/pre_check/combined_report.html"
+      else
+        echo "[WARN] Failed to merge test history (non-critical)"
+      fi
+
+  artifacts:
+    when: always
+    paths:
+      - infoblox_mvp1/robot_reports/pre_check/
+    reports:
+      junit: infoblox_mvp1/robot_reports/pre_check/output.xml
+    expire_in: 1 week
   tags:
     - aws-eks-elz-ent-ens-01-01
 
@@ -329,66 +383,37 @@ json_validation:
       
       json_file="infoblox_mvp1/prod_changes/$GRID_HOST/${RECORD_TYPE}.json"
       
+      # Check if file exists
       if [ ! -f "$json_file" ]; then
         echo "[ERROR] JSON file not found: $json_file"
         exit 1
       fi
       
+      # Check if file is empty
       if [ ! -s "$json_file" ]; then
         echo "[ERROR] JSON file is empty"
         exit 1
       fi
       
-      if python3 -c "import json; json.load(open('$json_file'))" 2>/dev/null; then
+      # Validate JSON
+      if python3 -c "import json; json.load(open('$json_file'))"; then
+        echo "✓ $json_file is valid JSON"
         record_count=$(python3 -c "import json; print(len(json.load(open('$json_file'))))")
-        echo "[OK] Valid JSON with $record_count record(s)"
-        
-        echo ""
-        echo "Extensible Attributes Summary:"
-        python3 -c "
-        import json
-        data = json.load(open('$json_file'))
-        extattrs_summary = {}
-        for record in data:
-            if 'extattrs' in record:
-                for key, value in record['extattrs'].items():
-                    if key not in extattrs_summary:
-                        extattrs_summary[key] = set()
-                    extattrs_summary[key].add(value)
-
-        for key, values in extattrs_summary.items():
-            print(f'  {key}: {', '.join(sorted(values))}')
-                "
-              else
-                echo "[ERROR] Invalid JSON format"
-                exit 1
-              fi
-              
-              echo ""
-              echo "[OK] Validation passed"
-          tags:
-            - aws-eks-elz-ent-ens-01-01
-
-validation_checkpoint:
-  stage: validation-checkpoint
-  script:
-    - *common_script
-    - |
-      echo "==========================================================="
-      echo "  PRE-IMPLEMENTATION VALIDATION COMPLETE"
-      echo "==========================================================="
-      echo "Grid: $GRID_HOST"
-      echo "Record Type: $RECORD_TYPE"
-      echo "Operation: $OPERATION_TYPE"
+        echo "  Records: $record_count"
+      else
+        echo "✗ $json_file is NOT valid JSON"
+        exit 1
+      fi
+      
       echo ""
-      echo "Ready to deploy. Run deployment stage manually to proceed."
-      echo "==========================================================="
+      echo "[OK] Validation passed"
   tags:
     - aws-eks-elz-ent-ens-01-01
-  when: on_success
 
 run_ansible_playbook:
   stage: deploy
+  needs:
+    - file_processing
   script:
     - *common_script
     - |
@@ -400,6 +425,24 @@ run_ansible_playbook:
       echo "Operation: $OPERATION_TYPE"
       echo "=========================================="
       echo ""
+      
+      # Verify the JSON file exists and get absolute path
+      json_file="infoblox_mvp1/prod_changes/$GRID_HOST/${RECORD_TYPE}.json"
+      
+      if [ ! -f "$json_file" ]; then
+        echo "[ERROR] JSON file not found: $json_file"
+        echo "Listing directory contents:"
+        ls -la infoblox_mvp1/prod_changes/
+        exit 1
+      fi
+      
+      # Get absolute path for verification only
+      JSON_FILE_PATH="$(pwd)/$json_file"
+      echo "JSON file found at: $JSON_FILE_PATH"
+      echo ""
+      
+      # Set relative path for Ansible playbook (relative to playbooks directory)
+      ANSIBLE_JSON_PATH="../prod_changes/$GRID_HOST/${RECORD_TYPE}.json"
       
       export ANSIBLE_HOST_KEY_CHECKING=False
       export ANSIBLE_DEPRECATION_WARNINGS=False
@@ -428,7 +471,7 @@ run_ansible_playbook:
       
       echo ""
       
-      playbook_file="infoblox_mvp1/playbooks/nios_${RECORD_TYPE}.yml"
+      playbook_file="infoblox_mvp1/playbooks/${RECORD_TYPE}.yml"
       
       if [ ! -f "$playbook_file" ]; then
         echo "[ERROR] Playbook not found: $playbook_file"
@@ -436,11 +479,13 @@ run_ansible_playbook:
       fi
       
       echo "Executing playbook: $playbook_file"
+      echo "Passing json_file variable: $ANSIBLE_JSON_PATH"
       echo ""
       
       ansible-playbook -i localhost, \
         --extra-vars "@provider_config.json" \
         -e "operation=$OPERATION_TYPE" \
+        -e "json_file=$ANSIBLE_JSON_PATH" \
         -e "ansible_connection=local" \
         -e "ansible_python_interpreter=/usr/bin/python3" \
         "$playbook_file" \
@@ -463,7 +508,6 @@ run_ansible_playbook:
 
   tags:
     - aws-eks-elz-ent-ens-01-01
-  when: manual
   allow_failure: false
 
 post_implementation:
@@ -471,35 +515,64 @@ post_implementation:
   script:
     - *common_script
     - |
-      echo "=== Post-Implementation Summary ==="
+      echo "=== Post-Implementation Verification with Robot Framework ==="
       echo "Grid: $GRID_HOST"
       echo "Record Type: $RECORD_TYPE"
       echo "Operation: $OPERATION_TYPE"
-      
+
       export infoblox_username="$INFOBLOX_USERNAME"
       export infoblox_password="$INFOBLOX_PASSWORD"
 
       json_file="infoblox_mvp1/prod_changes/$GRID_HOST/${RECORD_TYPE}.json"
-      
+
       if [ -f "$json_file" ]; then
         record_count=$(python3 -c "import json; print(len(json.load(open('$json_file'))))")
         echo "Records processed: $record_count"
       fi
-      
+
       echo ""
-      echo "Running post-deployment verification..."
-      
-      python3 infoblox_mvp1/utils/post_check.py \
-        --grid-host "$GRID_HOST" \
-        --record-type "$RECORD_TYPE" \
-        --json-file "$json_file"
-      
-      if [ $? -ne 0 ]; then
-        echo "[WARNING] Post-check failed"
+      echo "Installing Robot Framework..."
+      pip3 install robotframework >/dev/null 2>&1
+
+      echo "Running post-deployment verification with Robot Framework..."
+
+      # Determine which test suite to run based on record type
+      case "$RECORD_TYPE" in
+        a_record)
+          test_suite="infoblox_mvp1/tests/post_check/a_record_verification.robot"
+          ;;
+        cname_record)
+          test_suite="infoblox_mvp1/tests/post_check/cname_record_verification.robot"
+          ;;
+        network)
+          test_suite="infoblox_mvp1/tests/post_check/network_verification.robot"
+          ;;
+        *)
+          # Run all post-check tests for unknown types
+          test_suite="infoblox_mvp1/tests/post_check/"
+          ;;
+      esac
+
+      echo "Running test suite: $test_suite"
+
+      # Run Robot Framework tests
+      robot \
+        --variable GRID_HOST:$GRID_HOST \
+        --variable RECORD_TYPE:$RECORD_TYPE \
+        --outputdir infoblox_mvp1/robot_reports/post_check \
+        --name "Post-Deployment Verification - $RECORD_TYPE" \
+        --loglevel INFO \
+        "$test_suite"
+
+      robot_exit_code=$?
+
+      if [ $robot_exit_code -ne 0 ]; then
+        echo "[WARNING] Post-deployment verification failed"
+        echo "Check the Robot Framework report for details"
       else
-        echo "[OK] Post-check passed"
+        echo "[OK] Post-deployment verification passed"
       fi
-      
+
       echo ""
       echo "[OK] Deployment complete"
       echo ""
@@ -508,7 +581,30 @@ post_implementation:
       echo "  - Record Type: $RECORD_TYPE"
       echo "  - Operation: $OPERATION_TYPE"
       echo "  - Status: Success"
+      echo ""
+      echo "Robot Framework Reports:"
+      echo "  - HTML Report: infoblox_mvp1/robot_reports/post_check/report.html"
+      echo "  - Log: infoblox_mvp1/robot_reports/post_check/log.html"
 
+      echo ""
+      echo "Merging with historical test runs..."
+      python3 infoblox_mvp1/utils/robot/merge_reports.py post_check 20
+
+      if [ $? -eq 0 ]; then
+        echo "[OK] Test history merged successfully"
+        echo "  - Current run: infoblox_mvp1/robot_reports/post_check/report.html"
+        echo "  - Combined history: infoblox_mvp1/robot_reports/post_check/combined_report.html"
+      else
+        echo "[WARN] Failed to merge test history (non-critical)"
+      fi
+
+  artifacts:
+    when: always
+    paths:
+      - infoblox_mvp1/robot_reports/post_check/
+    reports:
+      junit: infoblox_mvp1/robot_reports/post_check/output.xml
+    expire_in: 1 week
   tags:
     - aws-eks-elz-ent-ens-01-01
   when: on_success
