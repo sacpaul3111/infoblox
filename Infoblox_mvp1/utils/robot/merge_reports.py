@@ -60,9 +60,9 @@ def merge_robot_reports(report_type='pre_check', max_history=10, base_path='info
             *output_files,
             name=f"{report_type.replace('_', ' ').title()} - Combined History",
             outputdir=base_dir,
-            output=f"{base_dir}/combined_output.xml",
-            log=f"{base_dir}/combined_log.html",
-            report=f"{base_dir}/combined_report.html",
+            output='combined_output.xml',
+            log='combined_log.html',
+            report='combined_report.html',
             merge=True
         )
 
@@ -75,6 +75,8 @@ def merge_robot_reports(report_type='pre_check', max_history=10, base_path='info
 
     except Exception as e:
         print(f"✗ Error merging reports: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
