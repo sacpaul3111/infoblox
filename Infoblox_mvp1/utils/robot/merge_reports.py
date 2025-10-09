@@ -12,15 +12,16 @@ from datetime import datetime
 from robot import rebot
 
 
-def merge_robot_reports(report_type='pre_check', max_history=10):
+def merge_robot_reports(report_type='pre_check', max_history=10, base_path='infoblox_mvp1'):
     """
     Merge multiple Robot Framework test runs into a combined report.
 
     Args:
         report_type: Type of report (pre_check or post_check)
         max_history: Maximum number of historical runs to keep
+        base_path: Base path for robot_reports directory (default: infoblox_mvp1)
     """
-    base_dir = f"robot_reports/{report_type}"
+    base_dir = f"{base_path}/robot_reports/{report_type}"
     history_dir = f"{base_dir}/history"
 
     # Create history directory if it doesn't exist
@@ -77,14 +78,15 @@ def merge_robot_reports(report_type='pre_check', max_history=10):
         return False
 
 
-def generate_statistics_report(report_type='pre_check'):
+def generate_statistics_report(report_type='pre_check', base_path='infoblox_mvp1'):
     """
     Generate a statistics report showing test execution trends.
 
     Args:
         report_type: Type of report (pre_check or post_check)
+        base_path: Base path for robot_reports directory (default: infoblox_mvp1)
     """
-    history_dir = f"robot_reports/{report_type}/history"
+    history_dir = f"{base_path}/robot_reports/{report_type}/history"
 
     if not os.path.exists(history_dir):
         print(f"No history directory found: {history_dir}")
@@ -122,20 +124,26 @@ if __name__ == "__main__":
     # Get report type from command line argument
     report_type = sys.argv[1] if len(sys.argv) > 1 else 'pre_check'
     max_history = int(sys.argv[2]) if len(sys.argv) > 2 else 10
+    base_path = sys.argv[3] if len(sys.argv) > 3 else 'infoblox_mvp1'
 
     print(f"Robot Framework Report Merger")
     print(f"Report Type: {report_type}")
     print(f"Max History: {max_history}")
+    print(f"Base Path: {base_path}")
     print("-" * 80)
 
     # Generate statistics before merging
-    generate_statistics_report(report_type)
+    generate_statistics_report(report_type, base_path)
 
     # Merge reports
-    success = merge_robot_reports(report_type, max_history)
+    success = merge_robot_reports(report_type, max_history, base_path)
 
     if success:
         print("\n✓ Report merging completed successfully!")
+        print(f"\n📊 VIEW REPORTS:")
+        print(f"   Current Run:  {base_path}/robot_reports/{report_type}/report.html")
+        print(f"   📈 HISTORY:   {base_path}/robot_reports/{report_type}/combined_report.html ⭐")
+        print(f"   History Dir:  {base_path}/robot_reports/{report_type}/history/")
     else:
         print("\n✗ Report merging failed!")
         sys.exit(1)
