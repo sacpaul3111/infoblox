@@ -857,13 +857,9 @@ post_implementation:
     expire_in: 1 week
   tags:
     - aws-eks-elz-ent-ens-01-01
-  when: on_success
 
 generate_execution_report:
   stage: reporting
-  needs:
-    - pre_check
-    - post_implementation
   script:
     - *common_script
     - |
@@ -880,311 +876,29 @@ generate_execution_report:
       # Install dependencies
       pip3 install --upgrade pip
 
-      # Create comprehensive execution report
-      python3 << 'PYTHON_SCRIPT'
-import json
-import os
-from datetime import datetime
+      # Create comprehensive execution report using standalone script
+      python3 infoblox_mvp1/utils/generate_execution_report.py
 
-def load_counter_data(counter_file):
-    """Load execution counter data from JSON file."""
-    if os.path.exists(counter_file):
-        with open(counter_file, 'r') as f:
-            return json.load(f)
-    return {}
+            echo ""
+            echo "=========================================="
+            echo "  REPORT GENERATION COMPLETE"
+            echo "=========================================="
+            echo "Execution Summary: infoblox_mvp1/robot_reports/execution_summary.html"
+            echo "View at: ${CI_PROJECT_URL}/-/blob/main/infoblox_mvp1/robot_reports/execution_summary.html"
+            echo "=========================================="
 
-def generate_statistics_report(report_type, counter_file):
-    """Generate detailed statistics report."""
-    data = load_counter_data(counter_file)
+            # Commit execution report
+            git config --global user.name "GitLab_Runner"
+            git config --global user.email "ens@amfam.com"
+            git pull origin main || true
 
-    if not data:
-        print(f"\n[WARNING] No execution data found for {report_type}")
-        return
+            git add -f infoblox_mvp1/robot_reports/execution_summary.html || true
 
-    print(f"\n{'='*80}")
-    print(f"  {report_type.upper().replace('_', ' ')} EXECUTION STATISTICS")
-    print(f"{'='*80}")
-
-    total_tests = len(data)
-    total_executions = sum(test['count'] for test in data.values())
-
-    print(f"\nTotal Unique Tests: {total_tests}")
-    print(f"Total Test Executions: {total_executions}")
-    print(f"\n{'-'*80}")
-    print(f"{'Test Name':<50} {'Executions':>15} {'Last Run':>15}")
-    print(f"{'-'*80}")
-
-    # Sort by execution count (descending)
-    sorted_tests = sorted(
-        data.items(),
-        key=lambda x: x[1]['count'],
-        reverse=True
-    )
-
-    for test_name, test_data in sorted_tests:
-        count = test_data['count']
-        last_run = test_data.get('last_run', 'N/A')
-
-        # Format last run timestamp
-        if last_run != 'N/A':
-            try:
-                dt = datetime.fromisoformat(last_run)
-                last_run_str = dt.strftime('%Y-%m-%d %H:%M')
-            except:
-                last_run_str = 'N/A'
-        else:
-            last_run_str = 'N/A'
-
-        # Truncate test name if too long
-        display_name = test_name[:47] + '...' if len(test_name) > 50 else test_name
-
-        print(f"{display_name:<50} {count:>15} {last_run_str:>15}")
-
-    print(f"{'-'*80}")
-    print(f"{'TOTAL':<50} {total_executions:>15}")
-    print(f"{'='*80}\n")
-
-def generate_html_report(pre_check_data, post_check_data, output_file):
-    """Generate HTML execution report."""
-    html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Robot Framework Execution Report</title>
-    <style>
-        body {{
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 20px;
-            background-color: #f5f5f5;
-        }}
-        .container {{
-            max-width: 1200px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }}
-        h1 {{
-            color: #333;
-            border-bottom: 3px solid #007bff;
-            padding-bottom: 10px;
-        }}
-        h2 {{
-            color: #555;
-            margin-top: 30px;
-            border-bottom: 2px solid #6c757d;
-            padding-bottom: 5px;
-        }}
-        .summary {{
-            background-color: #e9ecef;
-            padding: 20px;
-            border-radius: 5px;
-            margin: 20px 0;
-        }}
-        .summary-item {{
-            display: inline-block;
-            margin: 10px 20px 10px 0;
-        }}
-        .summary-label {{
-            font-weight: bold;
-            color: #495057;
-        }}
-        .summary-value {{
-            font-size: 24px;
-            color: #007bff;
-            font-weight: bold;
-        }}
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }}
-        th {{
-            background-color: #007bff;
-            color: white;
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-        }}
-        td {{
-            padding: 10px 12px;
-            border-bottom: 1px solid #dee2e6;
-        }}
-        tr:hover {{
-            background-color: #f8f9fa;
-        }}
-        .timestamp {{
-            color: #6c757d;
-            font-size: 14px;
-        }}
-        .footer {{
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #dee2e6;
-            color: #6c757d;
-            font-size: 14px;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🤖 Robot Framework Execution Report</h1>
-        <p class="timestamp">Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-
-        <div class="summary">
-            <div class="summary-item">
-                <div class="summary-label">Pre-Check Tests</div>
-                <div class="summary-value">{len(pre_check_data)}</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Pre-Check Executions</div>
-                <div class="summary-value">{sum(t['count'] for t in pre_check_data.values())}</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Post-Check Tests</div>
-                <div class="summary-value">{len(post_check_data)}</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Post-Check Executions</div>
-                <div class="summary-value">{sum(t['count'] for t in post_check_data.values())}</div>
-            </div>
-        </div>
-"""
-
-    # Add Pre-Check table
-    if pre_check_data:
-        html_content += """
-        <h2>Pre-Check Validation Tests</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Test Name</th>
-                    <th>Execution Count</th>
-                    <th>First Run</th>
-                    <th>Last Run</th>
-                </tr>
-            </thead>
-            <tbody>
-"""
-        sorted_pre = sorted(pre_check_data.items(), key=lambda x: x[1]['count'], reverse=True)
-        for test_name, data in sorted_pre:
-            first_run = data.get('first_run', 'N/A')
-            last_run = data.get('last_run', 'N/A')
-
-            try:
-                first_run_str = datetime.fromisoformat(first_run).strftime('%Y-%m-%d %H:%M') if first_run != 'N/A' else 'N/A'
-                last_run_str = datetime.fromisoformat(last_run).strftime('%Y-%m-%d %H:%M') if last_run != 'N/A' else 'N/A'
-            except:
-                first_run_str = 'N/A'
-                last_run_str = 'N/A'
-
-            html_content += f"""
-                <tr>
-                    <td>{test_name}</td>
-                    <td><strong>{data['count']}</strong></td>
-                    <td>{first_run_str}</td>
-                    <td>{last_run_str}</td>
-                </tr>
-"""
-        html_content += """
-            </tbody>
-        </table>
-"""
-
-    # Add Post-Check table
-    if post_check_data:
-        html_content += """
-        <h2>Post-Implementation Verification Tests</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Test Name</th>
-                    <th>Execution Count</th>
-                    <th>First Run</th>
-                    <th>Last Run</th>
-                </tr>
-            </thead>
-            <tbody>
-"""
-        sorted_post = sorted(post_check_data.items(), key=lambda x: x[1]['count'], reverse=True)
-        for test_name, data in sorted_post:
-            first_run = data.get('first_run', 'N/A')
-            last_run = data.get('last_run', 'N/A')
-
-            try:
-                first_run_str = datetime.fromisoformat(first_run).strftime('%Y-%m-%d %H:%M') if first_run != 'N/A' else 'N/A'
-                last_run_str = datetime.fromisoformat(last_run).strftime('%Y-%m-%d %H:%M') if last_run != 'N/A' else 'N/A'
-            except:
-                first_run_str = 'N/A'
-                last_run_str = 'N/A'
-
-            html_content += f"""
-                <tr>
-                    <td>{test_name}</td>
-                    <td><strong>{data['count']}</strong></td>
-                    <td>{first_run_str}</td>
-                    <td>{last_run_str}</td>
-                </tr>
-"""
-        html_content += """
-            </tbody>
-        </table>
-"""
-
-    html_content += """
-        <div class="footer">
-            <p>This report shows the execution history of all Robot Framework tests.</p>
-            <p>Data is tracked using ExecutionCounter.py and merged using merge_reports.py</p>
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-    with open(output_file, 'w') as f:
-        f.write(html_content)
-
-    print(f"\n[OK] HTML report generated: {output_file}")
-
-# Main execution
-pre_check_file = 'infoblox_mvp1/robot_reports/execution_counters/pre_check_counter.json'
-post_check_file = 'infoblox_mvp1/robot_reports/execution_counters/post_check_counter.json'
-
-pre_check_data = load_counter_data(pre_check_file)
-post_check_data = load_counter_data(post_check_file)
-
-# Generate console reports
-generate_statistics_report('Pre-Check', pre_check_file)
-generate_statistics_report('Post-Check', post_check_file)
-
-# Generate HTML report
-os.makedirs('infoblox_mvp1/robot_reports', exist_ok=True)
-generate_html_report(pre_check_data, post_check_data, 'infoblox_mvp1/robot_reports/execution_summary.html')
-
-print("\n[OK] Execution statistics report generation complete!")
-PYTHON_SCRIPT
-
-      echo ""
-      echo "=========================================="
-      echo "  REPORT GENERATION COMPLETE"
-      echo "=========================================="
-      echo "Execution Summary: infoblox_mvp1/robot_reports/execution_summary.html"
-      echo "View at: ${CI_PROJECT_URL}/-/blob/main/infoblox_mvp1/robot_reports/execution_summary.html"
-      echo "=========================================="
-
-      # Commit execution report
-      git config --global user.name "GitLab_Runner"
-      git config --global user.email "ens@amfam.com"
-      git pull origin main || true
-
-      git add -f infoblox_mvp1/robot_reports/execution_summary.html || true
-
-      if ! git diff --cached --quiet; then
-        git commit -m "Update execution statistics report [Pipeline: ${CI_PIPELINE_ID}]"
-        git remote set-url origin "https://GitLab_Runner:${GITLAB_CI_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
-        git push origin HEAD:main || true
-      fi
+            if ! git diff --cached --quiet; then
+              git commit -m "Update execution statistics report [Pipeline: ${CI_PIPELINE_ID}]"
+              git remote set-url origin "https://GitLab_Runner:${GITLAB_CI_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+              git push origin HEAD:main || true
+            fi
 
   artifacts:
     when: always
@@ -1194,5 +908,4 @@ PYTHON_SCRIPT
     expire_in: 1 month
   tags:
     - aws-eks-elz-ent-ens-01-01
-  when: on_success
-  allow_failure: true
+  when: always
