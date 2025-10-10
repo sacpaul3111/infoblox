@@ -58,3 +58,6 @@ test_*.csv
 
 # Pipeline artifacts
 artifacts/
+
+# Robot Framework reports (generated files)
+robot_reports/execution_summary.html

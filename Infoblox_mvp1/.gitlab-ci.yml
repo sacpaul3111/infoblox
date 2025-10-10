@@ -883,7 +883,10 @@ post_implementation:
 generate_execution_report:
   stage: post-implementation
   needs:
-    - post_implementation
+    - job: pre_implementation
+      artifacts: true
+    - job: post_implementation
+      artifacts: true
   when: always
   script:
     - *common_script
@@ -902,15 +905,22 @@ generate_execution_report:
       # Configure git FIRST before any operations
       git config --global user.name "GitLab_Runner"
       git config --global user.email "ens@amfam.com"
-      
+
       # Set pull strategy to avoid divergent branches warning
       git config --global pull.rebase true
-      
+
       # Fetch and reset to ensure clean state
       echo "Syncing with remote repository..."
       git fetch origin main
       git reset --hard origin/main
-      
+
+      # Restore artifacts from pre/post implementation jobs
+      # Artifacts are automatically downloaded to workspace by GitLab
+      echo ""
+      echo "Checking for metadata files from current pipeline run..."
+      ls -la infoblox_mvp1/robot_reports/pre_check/history/metadata_*.json 2>/dev/null || echo "No pre-check metadata found"
+      ls -la infoblox_mvp1/robot_reports/post_check/history/metadata_*.json 2>/dev/null || echo "No post-check metadata found"
+
       # Now generate the report
       export GRID_HOST="$GRID_HOST"
       export RECORD_TYPE="$RECORD_TYPE"
