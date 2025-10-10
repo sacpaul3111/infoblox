@@ -61,7 +61,6 @@ stages:
   - pre-implementation
   - deploy
   - post-implementation
-  - reporting
 
 workflow:
   rules:
@@ -830,6 +829,52 @@ post_implementation:
         fi
       fi
 
+      # Generate Execution Summary Report
+      echo ""
+      echo "=========================================="
+      echo "  EXECUTION STATISTICS REPORT"
+      echo "=========================================="
+      echo "Grid: $GRID_HOST"
+      echo "Record Type: $RECORD_TYPE"
+      echo "Operation: $OPERATION_TYPE"
+      echo "Pipeline ID: ${CI_PIPELINE_ID}"
+      echo "=========================================="
+      echo ""
+
+      # Generate comprehensive execution report
+      python3 infoblox_mvp1/utils/generate_execution_report.py
+
+      echo ""
+      echo "=========================================="
+      echo "  REPORT GENERATION COMPLETE"
+      echo "=========================================="
+      echo "Execution Summary: infoblox_mvp1/robot_reports/execution_summary.html"
+      echo "View at: ${CI_PROJECT_URL}/-/blob/main/infoblox_mvp1/robot_reports/execution_summary.html"
+      echo "=========================================="
+
+      # Commit execution summary report
+      git pull origin main || true
+      git add -f infoblox_mvp1/robot_reports/execution_summary.html || true
+
+      if ! git diff --cached --quiet; then
+        git commit -m "Update execution statistics report [Pipeline: ${CI_PIPELINE_ID}]"
+        git remote set-url origin "https://GitLab_Runner:${GITLAB_CI_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+
+        # Push with retry
+        for i in 1 2 3; do
+          if git push origin HEAD:main; then
+            echo "[OK] Execution summary committed to repository"
+            break
+          else
+            echo "[WARN] Push attempt $i failed, retrying..."
+            sleep 2
+            git pull --rebase origin main || true
+          fi
+        done
+      else
+        echo "[INFO] No changes to execution summary"
+      fi
+
       # Check if tests failed and exit accordingly
       if [ $robot_exit_code -ne 0 ]; then
         echo ""
@@ -847,6 +892,7 @@ post_implementation:
       echo "  - Record Type: $RECORD_TYPE"
       echo "  - Operation: $OPERATION_TYPE"
       echo "  - Reports: infoblox_mvp1/robot_reports/post_check/"
+      echo "  - Execution Summary: infoblox_mvp1/robot_reports/execution_summary.html"
       echo "  - Direct link: ${CI_PROJECT_URL}/-/tree/main/infoblox_mvp1/robot_reports/post_check"
 
   artifacts:
@@ -854,58 +900,7 @@ post_implementation:
     paths:
       - infoblox_mvp1/robot_reports/post_check/
       - infoblox_mvp1/robot_reports/execution_counters/
+      - infoblox_mvp1/robot_reports/execution_summary.html
     expire_in: 1 week
   tags:
     - aws-eks-elz-ent-ens-01-01
-
-generate_execution_report:
-  stage: reporting
-  script:
-    - *common_script
-    - |
-      echo "=========================================="
-      echo "  EXECUTION STATISTICS REPORT"
-      echo "=========================================="
-      echo "Grid: $GRID_HOST"
-      echo "Record Type: $RECORD_TYPE"
-      echo "Operation: $OPERATION_TYPE"
-      echo "Pipeline ID: ${CI_PIPELINE_ID}"
-      echo "=========================================="
-      echo ""
-
-      # Install dependencies
-      pip3 install --upgrade pip
-
-      # Create comprehensive execution report using standalone script
-      python3 infoblox_mvp1/utils/generate_execution_report.py
-
-            echo ""
-            echo "=========================================="
-            echo "  REPORT GENERATION COMPLETE"
-            echo "=========================================="
-            echo "Execution Summary: infoblox_mvp1/robot_reports/execution_summary.html"
-            echo "View at: ${CI_PROJECT_URL}/-/blob/main/infoblox_mvp1/robot_reports/execution_summary.html"
-            echo "=========================================="
-
-            # Commit execution report
-            git config --global user.name "GitLab_Runner"
-            git config --global user.email "ens@amfam.com"
-            git pull origin main || true
-
-            git add -f infoblox_mvp1/robot_reports/execution_summary.html || true
-
-            if ! git diff --cached --quiet; then
-              git commit -m "Update execution statistics report [Pipeline: ${CI_PIPELINE_ID}]"
-              git remote set-url origin "https://GitLab_Runner:${GITLAB_CI_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
-              git push origin HEAD:main || true
-            fi
-
-  artifacts:
-    when: always
-    paths:
-      - infoblox_mvp1/robot_reports/execution_summary.html
-      - infoblox_mvp1/robot_reports/execution_counters/
-    expire_in: 1 month
-  tags:
-    - aws-eks-elz-ent-ens-01-01
-  when: always
