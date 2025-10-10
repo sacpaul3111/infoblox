@@ -12,6 +12,26 @@ from datetime import datetime
 from xml.etree import ElementTree as ET
 
 
+def load_metadata_file(metadata_file):
+    """Load metadata from JSON file created during test execution.
+
+    Args:
+        metadata_file: Path to metadata JSON file
+
+    Returns:
+        dict: Metadata with grid_host, pipeline_id, operation, record_type
+    """
+    try:
+        if os.path.exists(metadata_file):
+            with open(metadata_file, 'r') as f:
+                metadata = json.load(f)
+                return metadata
+        return None
+    except Exception as e:
+        print(f"[WARN] Failed to load metadata file {metadata_file}: {e}")
+        return None
+
+
 def parse_robot_output(output_file):
     """Parse Robot Framework output.xml to extract suite-level test info.
 
@@ -54,31 +74,11 @@ def parse_robot_output(output_file):
         elif 'Network' in suite_name or 'network' in suite_name.lower():
             record_type = 'network'
 
-        # Try to extract pipeline ID, grid_host, operation from variables
-        pipeline_id = None
-        grid_host = None
-        operation = None
-
-        # Look for variables in the XML
-        for var in root.findall('.//var'):
-            var_name = var.get('name', '')
-            var_value = var.text or ''
-
-            if var_name in ['PIPELINE_ID', 'CI_PIPELINE_ID']:
-                pipeline_id = var_value
-            elif var_name == 'GRID_HOST':
-                grid_host = var_value
-            elif var_name == 'OPERATION_TYPE':
-                operation = var_value
-
         return {
             'record_type': record_type,
             'status': status,
             'execution_time': execution_time,
-            'suite_name': suite_name,
-            'pipeline_id': pipeline_id,
-            'grid_host': grid_host,
-            'operation': operation
+            'suite_name': suite_name
         }
     except Exception as e:
         print(f"[WARN] Failed to parse {output_file}: {e}")
@@ -118,6 +118,7 @@ def collect_and_merge_test_executions(base_path):
             except:
                 file_timestamp = 'N/A'
                 group_time = timestamp_str[:13] if len(timestamp_str) > 13 else timestamp_str
+                timestamp_str = filename.replace('output_', '').replace('.xml', '')
 
             # Parse the XML file
             test_info = parse_robot_output(xml_file)
@@ -129,9 +130,6 @@ def collect_and_merge_test_executions(base_path):
 
                 record_type = test_info['record_type']
                 status = test_info['status']
-                pipeline_id = test_info.get('pipeline_id')
-                grid_host = test_info.get('grid_host')
-                operation = test_info.get('operation')
 
                 # Create grouping key using rounded timestamp and record type
                 # This groups pre and post from the same pipeline run (within 10 min window)
@@ -143,25 +141,32 @@ def collect_and_merge_test_executions(base_path):
                         'execution_time': test_info['execution_time'],
                         'pre_status': None,
                         'post_status': None,
-                        'pipeline_id': pipeline_id or 'N/A',
-                        'grid_host': grid_host or 'N/A',
-                        'operation': operation or 'N/A',
+                        'pipeline_id': 'N/A',
+                        'grid_host': 'N/A',
+                        'operation': 'N/A',
                         'timestamp_str': timestamp_str
                     }
-                else:
-                    # Update pipeline_id, grid_host, operation if found in subsequent file
-                    if pipeline_id and test_groups[group_key]['pipeline_id'] == 'N/A':
-                        test_groups[group_key]['pipeline_id'] = pipeline_id
-                    if grid_host and test_groups[group_key]['grid_host'] == 'N/A':
-                        test_groups[group_key]['grid_host'] = grid_host
-                    if operation and test_groups[group_key]['operation'] == 'N/A':
-                        test_groups[group_key]['operation'] = operation
 
                 # Store pre or post status
                 if check_type == 'pre_check':
                     test_groups[group_key]['pre_status'] = status
                 else:
                     test_groups[group_key]['post_status'] = status
+
+    # Now extract metadata for each group from metadata files
+    for group_key, test_group in test_groups.items():
+        timestamp_str = test_group['timestamp_str']
+
+        # Try to load metadata from pre_check or post_check history
+        for check_type in ['pre_check', 'post_check']:
+            metadata_file = f'{base_path}/robot_reports/{check_type}/history/metadata_{timestamp_str}.json'
+            metadata = load_metadata_file(metadata_file)
+
+            if metadata:
+                test_group['pipeline_id'] = metadata.get('pipeline_id', 'N/A')
+                test_group['grid_host'] = metadata.get('grid_host', 'N/A')
+                test_group['operation'] = metadata.get('operation', 'N/A')
+                break  # Found metadata, no need to check other type
 
     # Convert grouped tests to final list with merged status
     merged_executions = []
