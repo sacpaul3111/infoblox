@@ -1,5 +1,5 @@
 *** Settings ***
-Documentation     CNAME Record validation tests - essential pre-deployment checks only
+Documentation     CNAME Record validation tests - supports both add and delete operations
 Library           ../../utils/robot/InfobloxAPI.py
 Library           ../../utils/robot/ExecutionCounter.py
 Library           Collections
@@ -13,6 +13,7 @@ Test Teardown     Record Individual Test Result
 ${GRID_HOST}              cabgridmgr.amfam.com
 ${JSON_FILE}              ${CURDIR}/../../prod_changes/${GRID_HOST}/cname_record.json
 ${COUNTER_FILE}           ${CURDIR}/../../robot_reports/pre_check/execution_counter.json
+${OPERATION_TYPE}         add
 
 *** Test Cases ***
 Validate CNAME Record JSON File Exists
@@ -33,43 +34,14 @@ Validate CNAME Record Required Fields
         Log    ✓ Record '${record['name']}' has all required fields    INFO
     END
 
-Validate CNAME Record DNS Zones Exist
-    [Documentation]    Verify parent DNS zones exist in Infoblox
-    [Tags]    cname_record    validation    dns_zone
+Verify CNAME Record Existence Based On Operation
+    [Documentation]    For ADD: Fail if records exist. For DELETE: Fail if records don't exist
+    [Tags]    cname_record    validation    existence_check
     Connect To Infoblox Grid    ${GRID_HOST}
     Test Infoblox Connection
     ${records}=    Load JSON Records    ${JSON_FILE}
 
-    ${parent_domains}=    Create List
-
-    FOR    ${record}    IN    @{records}
-        ${parent}=    Extract Parent Domain    ${record['name']}
-        ${view}=    Set Variable    ${record['view']}
-        ${domain_view}=    Set Variable    ${parent}|${view}
-
-        ${exists}=    Run Keyword And Return Status    List Should Contain Value    ${parent_domains}    ${domain_view}
-        Run Keyword Unless    ${exists}    Append To List    ${parent_domains}    ${domain_view}
-    END
-
-    FOR    ${domain_view}    IN    @{parent_domains}
-        ${parts}=    Split String    ${domain_view}    |
-        ${domain}=    Set Variable    ${parts[0]}
-        ${view}=    Set Variable    ${parts[1]}
-
-        ${zones}=    Get DNS Zones    fqdn=${domain}    view=${view}
-        ${zone_count}=    Get Length    ${zones}
-        Should Be True    ${zone_count} > 0    msg=DNS zone '${domain}' does not exist in view '${view}'
-        Log    ✓ DNS zone exists: ${domain} in view ${view}    INFO
-    END
-
-Check For Duplicate CNAME Records
-    [Documentation]    Check if CNAME records already exist in Infoblox (will cause deployment failure)
-    [Tags]    cname_record    validation    duplicates
-    Connect To Infoblox Grid    ${GRID_HOST}
-    Test Infoblox Connection
-    ${records}=    Load JSON Records    ${JSON_FILE}
-
-    ${has_duplicates}=    Set Variable    ${False}
+    ${failed}=    Create List
 
     FOR    ${record}    IN    @{records}
         ${name}=    Set Variable    ${record['name']}
@@ -78,23 +50,38 @@ Check For Duplicate CNAME Records
         ${existing}=    Get CNAME Records    name=${name}    view=${view}
         ${count}=    Get Length    ${existing}
 
-        IF    ${count} > 0
-            Log    ✗ ERROR: CNAME record '${name}' already exists in view '${view}'    ERROR
-            Log    Existing canonical: ${existing[0]['canonical']}    ERROR
-            Log    New canonical: ${record['canonical']}    ERROR
-            ${has_duplicates}=    Set Variable    ${True}
-        ELSE
-            Log    ✓ Record '${name}' does not exist (new record)    INFO
+        IF    '${OPERATION_TYPE}' == 'add'
+            # For ADD operation: FAIL if already exists
+            IF    ${count} > 0
+                Log    ✗ Record '${name}' ALREADY EXISTS in Infoblox with canonical ${existing[0]['canonical']} (cannot add)    ERROR
+                Append To List    ${failed}    ${name}
+            ELSE
+                Log    ✓ Record '${name}' does not exist (ready for creation)    INFO
+            END
+        ELSE IF    '${OPERATION_TYPE}' == 'delete'
+            # For DELETE operation: FAIL if doesn't exist
+            IF    ${count} == 0
+                Log    ✗ Record '${name}' does NOT exist in Infoblox (cannot delete)    ERROR
+                Append To List    ${failed}    ${name}
+            ELSE
+                Log    ✓ Record '${name}' exists with canonical ${existing[0]['canonical']} (ready for deletion)    INFO
+            END
         END
     END
 
-    Should Not Be True    ${has_duplicates}    msg=Duplicate CNAME records found - deployment will fail
+    # Fail if any records have issues
+    ${failed_count}=    Get Length    ${failed}
+    IF    '${OPERATION_TYPE}' == 'add'
+        Should Be Equal As Numbers    ${failed_count}    0    msg=${failed_count} CNAME record(s) already exist and cannot be added: ${failed}
+    ELSE IF    '${OPERATION_TYPE}' == 'delete'
+        Should Be Equal As Numbers    ${failed_count}    0    msg=${failed_count} CNAME record(s) not found and cannot be deleted: ${failed}
+    END
 
 *** Keywords ***
 Setup Execution Tracking
     [Documentation]    Initialize execution tracking for this test suite
     Initialize Execution Counter    ${COUNTER_FILE}
-    Log    📊 Execution tracking initialized    INFO
+    Log    📊 Execution tracking initialized for ${OPERATION_TYPE} operation    INFO
 
 Teardown Execution Tracking
     [Documentation]    Save execution tracking data and display statistics

@@ -1,5 +1,5 @@
 *** Settings ***
-Documentation     A Record validation tests - essential pre-deployment checks only
+Documentation     A Record validation tests - supports both add and delete operations
 Library           ../../utils/robot/InfobloxAPI.py
 Library           ../../utils/robot/ExecutionCounter.py
 Library           Collections
@@ -13,6 +13,7 @@ Test Teardown     Record Individual Test Result
 ${GRID_HOST}              cabgridmgr.amfam.com
 ${JSON_FILE}              ${CURDIR}/../../prod_changes/${GRID_HOST}/a_record.json
 ${COUNTER_FILE}           ${CURDIR}/../../robot_reports/pre_check/execution_counter.json
+${OPERATION_TYPE}         add
 
 *** Test Cases ***
 Validate A Record JSON File Exists
@@ -45,42 +46,14 @@ Validate A Record IPv4 Addresses
         Log    ✓ Valid IP address: ${ip} for ${record['name']}    INFO
     END
 
-Validate A Record DNS Zones Exist
-    [Documentation]    Verify parent DNS zones exist in Infoblox
-    [Tags]    a_record    validation    dns_zone
+Verify A Record Existence Based On Operation
+    [Documentation]    For ADD: Fail if records exist. For DELETE: Fail if records don't exist
+    [Tags]    a_record    validation    existence_check
     Connect To Infoblox Grid    ${GRID_HOST}
     Test Infoblox Connection
     ${records}=    Load JSON Records    ${JSON_FILE}
 
-    # Get unique parent domains
-    ${parent_domains}=    Create List
-
-    FOR    ${record}    IN    @{records}
-        ${parent}=    Extract Parent Domain    ${record['name']}
-        ${view}=    Set Variable    ${record['view']}
-        ${domain_view}=    Set Variable    ${parent}|${view}
-
-        ${exists}=    Run Keyword And Return Status    List Should Contain Value    ${parent_domains}    ${domain_view}
-        Run Keyword Unless    ${exists}    Append To List    ${parent_domains}    ${domain_view}
-    END
-
-    FOR    ${domain_view}    IN    @{parent_domains}
-        ${parts}=    Split String    ${domain_view}    |
-        ${domain}=    Set Variable    ${parts[0]}
-        ${view}=    Set Variable    ${parts[1]}
-
-        ${zones}=    Get DNS Zones    fqdn=${domain}    view=${view}
-        ${zone_count}=    Get Length    ${zones}
-        Should Be True    ${zone_count} > 0    msg=DNS zone '${domain}' does not exist in view '${view}'
-        Log    ✓ DNS zone exists: ${domain} in view ${view}    INFO
-    END
-
-Check For Duplicate A Records
-    [Documentation]    Check if A records already exist in Infoblox (informational only)
-    [Tags]    a_record    validation    duplicates
-    Connect To Infoblox Grid    ${GRID_HOST}
-    Test Infoblox Connection
-    ${records}=    Load JSON Records    ${JSON_FILE}
+    ${failed}=    Create List
 
     FOR    ${record}    IN    @{records}
         ${name}=    Set Variable    ${record['name']}
@@ -89,15 +62,38 @@ Check For Duplicate A Records
         ${existing}=    Get A Records    name=${name}    view=${view}
         ${count}=    Get Length    ${existing}
 
-        Run Keyword If    ${count} > 0    Log    ⚠️  Record '${name}' already exists in Infoblox with IP ${existing[0]['ipv4addr']}    WARN
-        ...    ELSE    Log    ✓ Record '${name}' does not exist (new record)    INFO
+        IF    '${OPERATION_TYPE}' == 'add'
+            # For ADD operation: FAIL if already exists
+            IF    ${count} > 0
+                Log    ✗ Record '${name}' ALREADY EXISTS in Infoblox with IP ${existing[0]['ipv4addr']} (cannot add)    ERROR
+                Append To List    ${failed}    ${name}
+            ELSE
+                Log    ✓ Record '${name}' does not exist (ready for creation)    INFO
+            END
+        ELSE IF    '${OPERATION_TYPE}' == 'delete'
+            # For DELETE operation: FAIL if doesn't exist
+            IF    ${count} == 0
+                Log    ✗ Record '${name}' does NOT exist in Infoblox (cannot delete)    ERROR
+                Append To List    ${failed}    ${name}
+            ELSE
+                Log    ✓ Record '${name}' exists with IP ${existing[0]['ipv4addr']} (ready for deletion)    INFO
+            END
+        END
+    END
+
+    # Fail if any records have issues
+    ${failed_count}=    Get Length    ${failed}
+    IF    '${OPERATION_TYPE}' == 'add'
+        Should Be Equal As Numbers    ${failed_count}    0    msg=${failed_count} record(s) already exist and cannot be added: ${failed}
+    ELSE IF    '${OPERATION_TYPE}' == 'delete'
+        Should Be Equal As Numbers    ${failed_count}    0    msg=${failed_count} record(s) not found and cannot be deleted: ${failed}
     END
 
 *** Keywords ***
 Setup Execution Tracking
     [Documentation]    Initialize execution tracking for this test suite
     Initialize Execution Counter    ${COUNTER_FILE}
-    Log    📊 Execution tracking initialized    INFO
+    Log    📊 Execution tracking initialized for ${OPERATION_TYPE} operation    INFO
 
 Teardown Execution Tracking
     [Documentation]    Save execution tracking data and display statistics

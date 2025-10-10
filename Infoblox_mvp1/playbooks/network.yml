@@ -120,7 +120,7 @@
     options: "{{ item.options | default(omit) }}"
     extattrs: "{{ item.extattrs | default(omit) }}"
     members: "{{ item.members | default(omit) }}"
-    state: present
+    state: "{{ 'present' if operation_type == 'add' else 'absent' }}"
   loop: "{{ nios_network_desired }}"
   register: add_result
   ignore_errors: true

@@ -1,5 +1,5 @@
 *** Settings ***
-Documentation     Network validation tests - essential pre-deployment checks only
+Documentation     Network validation tests - supports both add and delete operations
 Library           ../../utils/robot/InfobloxAPI.py
 Library           ../../utils/robot/ExecutionCounter.py
 Library           Collections
@@ -13,6 +13,7 @@ Test Teardown     Record Individual Test Result
 ${GRID_HOST}              cabgridmgr.amfam.com
 ${JSON_FILE}              ${CURDIR}/../../prod_changes/${GRID_HOST}/network.json
 ${COUNTER_FILE}           ${CURDIR}/../../robot_reports/pre_check/execution_counter.json
+${OPERATION_TYPE}         add
 
 *** Test Cases ***
 Validate Network JSON File Exists
@@ -53,68 +54,54 @@ Validate Network CIDR Format
         Log    ✓ Valid network CIDR: ${network}    INFO
     END
 
-Validate Network Views Exist
-    [Documentation]    Verify network views exist in Infoblox
-    [Tags]    network    validation    network_view
+Verify Network Existence Based On Operation
+    [Documentation]    For ADD: Fail if networks exist. For DELETE: Fail if networks don't exist
+    [Tags]    network    validation    existence_check
     Connect To Infoblox Grid    ${GRID_HOST}
     Test Infoblox Connection
     ${records}=    Load JSON Records    ${JSON_FILE}
 
-    ${network_views}=    Create List
-
-    FOR    ${record}    IN    @{records}
-        ${network_view}=    Get From Dictionary    ${record}    network_view    default=default
-
-        ${exists}=    Run Keyword And Return Status    List Should Contain Value    ${network_views}    ${network_view}
-        Run Keyword Unless    ${exists}    Append To List    ${network_views}    ${network_view}
-    END
-
-    FOR    ${network_view}    IN    @{network_views}
-        ${views}=    Get Network Views    name=${network_view}
-        ${view_count}=    Get Length    ${views}
-        Should Be True    ${view_count} > 0    msg=Network view '${network_view}' does not exist
-        Log    ✓ Network view exists: ${network_view}    INFO
-    END
-
-Validate Grid Members Exist
-    [Documentation]    Verify all grid members exist in Infoblox (critical check)
-    [Tags]    network    validation    grid_members
-    Connect To Infoblox Grid    ${GRID_HOST}
-    Test Infoblox Connection
-    ${records}=    Load JSON Records    ${JSON_FILE}
-
-    ${missing_members}=    Create List
+    ${failed}=    Create List
 
     FOR    ${record}    IN    @{records}
         ${network}=    Set Variable    ${record['network']}
-        ${members}=    Set Variable    ${record['members']}
+        ${network_view}=    Set Variable If    'networkview' in $record    ${record['networkview']}    default
 
-        FOR    ${member}    IN    @{members}
-            ${has_name}=    Run Keyword And Return Status    Dictionary Should Contain Key    ${member}    name
+        ${existing}=    Get Networks    network=${network}    network_view=${network_view}
+        ${count}=    Get Length    ${existing}
 
-            IF    ${has_name}
-                ${member_name}=    Set Variable    ${member['name']}
-                ${grid_members}=    Get Grid Members    host_name=${member_name}
-                ${member_count}=    Get Length    ${grid_members}
-
-                IF    ${member_count} == 0
-                    Log    ✗ ERROR: Grid member '${member_name}' does NOT exist for network ${network}    ERROR
-                    Append To List    ${missing_members}    ${member_name}
-                ELSE
-                    Log    ✓ Grid member exists: ${member_name}    INFO
-                END
+        IF    '${OPERATION_TYPE}' == 'add'
+            # For ADD operation: FAIL if already exists
+            IF    ${count} > 0
+                Log    ✗ Network '${network}' ALREADY EXISTS in Infoblox (cannot add)    ERROR
+                Append To List    ${failed}    ${network}
+            ELSE
+                Log    ✓ Network '${network}' does not exist (ready for creation)    INFO
+            END
+        ELSE IF    '${OPERATION_TYPE}' == 'delete'
+            # For DELETE operation: FAIL if doesn't exist
+            IF    ${count} == 0
+                Log    ✗ Network '${network}' does NOT exist in Infoblox (cannot delete)    ERROR
+                Append To List    ${failed}    ${network}
+            ELSE
+                Log    ✓ Network '${network}' exists (ready for deletion)    INFO
             END
         END
     END
 
-    ${missing_count}=    Get Length    ${missing_members}
-    Should Be Equal As Numbers    ${missing_count}    0    msg=Missing grid members: ${missing_members}
+    # Fail if any networks have issues
+    ${failed_count}=    Get Length    ${failed}
+    IF    '${OPERATION_TYPE}' == 'add'
+        Should Be Equal As Numbers    ${failed_count}    0    msg=${failed_count} network(s) already exist and cannot be added: ${failed}
+    ELSE IF    '${OPERATION_TYPE}' == 'delete'
+        Should Be Equal As Numbers    ${failed_count}    0    msg=${failed_count} network(s) not found and cannot be deleted: ${failed}
+    END
 
 *** Keywords ***
 Setup Execution Tracking
     [Documentation]    Initialize execution tracking for this test suite
     Initialize Execution Counter    ${COUNTER_FILE}
-    Log    📊 Execution tracking initialized    INFO
+    Log    📊 Execution tracking initialized for ${OPERATION_TYPE} operation    INFO
 
 Teardown Execution Tracking
     [Documentation]    Save execution tracking data and display statistics

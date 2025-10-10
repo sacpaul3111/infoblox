@@ -16,7 +16,7 @@ def parse_robot_output(output_file):
     """Parse Robot Framework output.xml to extract suite-level test info.
 
     Returns:
-        dict: Test suite information including status, time, etc.
+        dict: Test suite information including status, time, pipeline ID, etc.
     """
     try:
         tree = ET.parse(output_file)
@@ -54,31 +54,54 @@ def parse_robot_output(output_file):
         elif 'Network' in suite_name or 'network' in suite_name.lower():
             record_type = 'network'
 
+        # Try to extract pipeline ID from metadata/tags
+        pipeline_id = None
+        grid_host = None
+        operation = None
+
+        # Look for metadata tags
+        for tag in root.findall('.//tag'):
+            tag_text = tag.text or ''
+            if 'Pipeline' in tag_text or 'PIPELINE' in tag_text:
+                # Extract pipeline ID from tag like "Pipeline: 12345"
+                parts = tag_text.split(':')
+                if len(parts) > 1:
+                    pipeline_id = parts[1].strip()
+
+        # Look for variables
+        for var in root.findall('.//var'):
+            var_name = var.get('name', '')
+            var_value = var.text or ''
+
+            if var_name == 'PIPELINE_ID' or var_name == 'CI_PIPELINE_ID':
+                pipeline_id = var_value
+            elif var_name == 'GRID_HOST':
+                grid_host = var_value
+            elif var_name == 'OPERATION_TYPE':
+                operation = var_value
+
         return {
             'record_type': record_type,
             'status': status,
             'execution_time': execution_time,
-            'suite_name': suite_name
+            'suite_name': suite_name,
+            'pipeline_id': pipeline_id,
+            'grid_host': grid_host,
+            'operation': operation
         }
     except Exception as e:
         print(f"[WARN] Failed to parse {output_file}: {e}")
         return None
 
 
-def get_pipeline_id_from_filename(filename):
-    """Try to extract pipeline ID from filename or return N/A."""
-    # Filename format might be: output_20250120_164530.xml
-    # Pipeline ID might be embedded, otherwise return N/A
-    return os.environ.get('CI_PIPELINE_ID', 'N/A')
-
-
 def collect_and_merge_test_executions(base_path):
     """Collect test executions from history files and merge pre/post checks.
 
     Returns:
-        list: List of merged test execution records
+        list: List of merged test execution records (one per pipeline run per record type)
     """
-    # Dictionary to group tests by timestamp/pipeline
+    # Dictionary to group tests by pipeline run
+    # Key format: "pipeline_id_record_type" or "timestamp_record_type" if no pipeline ID
     test_groups = {}
 
     # Check both pre_check and post_check history
@@ -99,10 +122,11 @@ def collect_and_merge_test_executions(base_path):
                 # timestamp_str format: 20250120_164530
                 dt = datetime.strptime(timestamp_str, '%Y%m%d_%H%M%S')
                 file_timestamp = dt.strftime('%Y-%m-%d %H:%M')
-                group_key = timestamp_str  # Use timestamp as grouping key
+                # Use date only for grouping (same day runs belong together)
+                date_key = timestamp_str[:8]  # YYYYMMDD
             except:
                 file_timestamp = 'N/A'
-                group_key = filename
+                date_key = filename
 
             # Parse the XML file
             test_info = parse_robot_output(xml_file)
@@ -114,29 +138,49 @@ def collect_and_merge_test_executions(base_path):
 
                 record_type = test_info['record_type']
                 status = test_info['status']
+                pipeline_id = test_info.get('pipeline_id')
+                grid_host = test_info.get('grid_host')
+                operation = test_info.get('operation')
 
-                # Create a unique key for this test group (timestamp + record_type)
-                unique_key = f"{group_key}_{record_type}"
+                # Create grouping key
+                # If we have pipeline ID from XML, use it for grouping
+                # Otherwise use timestamp for grouping
+                if pipeline_id:
+                    group_key = f"{pipeline_id}_{record_type}"
+                else:
+                    # Use full timestamp for more precise grouping
+                    group_key = f"{timestamp_str}_{record_type}"
 
-                if unique_key not in test_groups:
-                    test_groups[unique_key] = {
+                if group_key not in test_groups:
+                    test_groups[group_key] = {
                         'record_type': record_type,
                         'execution_time': test_info['execution_time'],
                         'pre_status': None,
                         'post_status': None,
-                        'group_key': group_key
+                        'pipeline_id': pipeline_id or 'N/A',
+                        'grid_host': grid_host or os.environ.get('GRID_HOST', 'N/A'),
+                        'operation': operation or os.environ.get('OPERATION_TYPE', 'N/A'),
+                        'timestamp_str': timestamp_str
                     }
+                else:
+                    # Update pipeline_id, grid_host, operation if found in subsequent file
+                    if pipeline_id:
+                        test_groups[group_key]['pipeline_id'] = pipeline_id
+                    if grid_host:
+                        test_groups[group_key]['grid_host'] = grid_host
+                    if operation:
+                        test_groups[group_key]['operation'] = operation
 
                 # Store pre or post status
                 if check_type == 'pre_check':
-                    test_groups[unique_key]['pre_status'] = status
+                    test_groups[group_key]['pre_status'] = status
                 else:
-                    test_groups[unique_key]['post_status'] = status
+                    test_groups[group_key]['post_status'] = status
 
     # Convert grouped tests to final list with merged status
     merged_executions = []
 
-    for unique_key, test_group in test_groups.items():
+    for group_key, test_group in test_groups.items():
         pre_status = test_group['pre_status']
         post_status = test_group['post_status']
 
@@ -146,7 +190,7 @@ def collect_and_merge_test_executions(base_path):
         elif pre_status == 'PASS' and post_status == 'PASS':
             final_status = 'PASS'
         elif pre_status == 'PASS' or post_status == 'PASS':
-            # At least one passed, other might be None
+            # At least one passed, other might be None (only pre or only post ran)
             final_status = 'PASS'
         else:
             final_status = 'UNKNOWN'
@@ -155,9 +199,9 @@ def collect_and_merge_test_executions(base_path):
             'record_type': test_group['record_type'],
             'status': final_status,
             'execution_time': test_group['execution_time'],
-            'pipeline_id': get_pipeline_id_from_filename(test_group['group_key']),
-            'grid_host': os.environ.get('GRID_HOST', 'N/A'),
-            'operation': os.environ.get('OPERATION_TYPE', 'N/A')
+            'pipeline_id': test_group['pipeline_id'],
+            'grid_host': test_group['grid_host'],
+            'operation': test_group['operation']
         })
 
     # Sort by execution time (most recent first)
@@ -188,7 +232,7 @@ def generate_html_report(executions, output_file):
         }}
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+            background: #f5f5f5;
             padding: 20px;
             min-height: 100vh;
         }}
@@ -196,14 +240,14 @@ def generate_html_report(executions, output_file):
             max-width: 1400px;
             margin: 0 auto;
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             overflow: hidden;
         }}
 
         /* Banner */
         .banner {{
-            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
             color: white;
             padding: 30px 40px;
             text-align: center;
@@ -260,7 +304,7 @@ def generate_html_report(executions, output_file):
             overflow: hidden;
         }}
         .test-table thead {{
-            background: #f3f4f6;
+            background: #f9fafb;
         }}
         .test-table th {{
             padding: 14px 16px;
