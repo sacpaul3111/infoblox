@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generate simplified execution summary report.
-Shows only suite-level tests (A Record, CNAME Record, Network) with pass/fail status.
+Combines pre and post checks into single test entry with merged status.
 """
 
 import json
@@ -16,7 +16,7 @@ def parse_robot_output(output_file):
     """Parse Robot Framework output.xml to extract suite-level test info.
 
     Returns:
-        dict: Test suite information including status, time, pipeline, etc.
+        dict: Test suite information including status, time, etc.
     """
     try:
         tree = ET.parse(output_file)
@@ -35,7 +35,6 @@ def parse_robot_output(output_file):
 
         # Get timestamps
         start_time = status_elem.get('starttime', '') if status_elem is not None else ''
-        end_time = status_elem.get('endtime', '') if status_elem is not None else ''
 
         # Parse timestamp (format: 20250120 16:45:30.123)
         execution_time = 'N/A'
@@ -49,11 +48,11 @@ def parse_robot_output(output_file):
         # Determine record type from suite name
         record_type = 'Unknown'
         if 'A Record' in suite_name or 'a_record' in suite_name.lower():
-            record_type = 'A Record'
+            record_type = 'a_record'
         elif 'CNAME' in suite_name or 'cname' in suite_name.lower():
-            record_type = 'CNAME Record'
+            record_type = 'cname_record'
         elif 'Network' in suite_name or 'network' in suite_name.lower():
-            record_type = 'Network'
+            record_type = 'network'
 
         return {
             'record_type': record_type,
@@ -66,56 +65,21 @@ def parse_robot_output(output_file):
         return None
 
 
-def get_json_file_info(base_path, record_type):
-    """Get information about the JSON file used for this record type.
+def get_pipeline_id_from_filename(filename):
+    """Try to extract pipeline ID from filename or return N/A."""
+    # Filename format might be: output_20250120_164530.xml
+    # Pipeline ID might be embedded, otherwise return N/A
+    return os.environ.get('CI_PIPELINE_ID', 'N/A')
+
+
+def collect_and_merge_test_executions(base_path):
+    """Collect test executions from history files and merge pre/post checks.
 
     Returns:
-        dict: JSON file info (path, record count, etc.)
+        list: List of merged test execution records
     """
-    # Map record type to JSON filename
-    json_map = {
-        'A Record': 'a_record.json',
-        'CNAME Record': 'cname_record.json',
-        'Network': 'network.json'
-    }
-
-    json_filename = json_map.get(record_type, f'{record_type.lower().replace(" ", "_")}.json')
-
-    # Look for JSON file in prod_changes (may not exist if cleaned up)
-    grid_dirs = glob.glob(f'{base_path}/prod_changes/*')
-
-    for grid_dir in grid_dirs:
-        json_path = os.path.join(grid_dir, json_filename)
-        if os.path.exists(json_path):
-            try:
-                with open(json_path, 'r') as f:
-                    data = json.load(f)
-                    record_count = len(data) if isinstance(data, list) else 1
-                    grid_host = os.path.basename(grid_dir)
-                    return {
-                        'path': json_path,
-                        'record_count': record_count,
-                        'grid_host': grid_host,
-                        'exists': True
-                    }
-            except:
-                pass
-
-    return {
-        'path': 'N/A',
-        'record_count': 0,
-        'grid_host': 'N/A',
-        'exists': False
-    }
-
-
-def collect_test_executions(base_path):
-    """Collect all test executions from history files.
-
-    Returns:
-        list: List of test execution records
-    """
-    executions = []
+    # Dictionary to group tests by timestamp/pipeline
+    test_groups = {}
 
     # Check both pre_check and post_check history
     for check_type in ['pre_check', 'post_check']:
@@ -135,8 +99,10 @@ def collect_test_executions(base_path):
                 # timestamp_str format: 20250120_164530
                 dt = datetime.strptime(timestamp_str, '%Y%m%d_%H%M%S')
                 file_timestamp = dt.strftime('%Y-%m-%d %H:%M')
+                group_key = timestamp_str  # Use timestamp as grouping key
             except:
                 file_timestamp = 'N/A'
+                group_key = filename
 
             # Parse the XML file
             test_info = parse_robot_output(xml_file)
@@ -146,49 +112,67 @@ def collect_test_executions(base_path):
                 if test_info['execution_time'] == 'N/A':
                     test_info['execution_time'] = file_timestamp
 
-                # Add check type and filename
-                test_info['check_type'] = check_type
-                test_info['filename'] = filename
+                record_type = test_info['record_type']
+                status = test_info['status']
 
-                # Try to extract pipeline ID from filename or XML
-                pipeline_id = 'N/A'
-                try:
-                    tree = ET.parse(xml_file)
-                    root = tree.getroot()
-                    # Look for pipeline ID in metadata or tags
-                    for tag in root.findall('.//tag'):
-                        if 'Pipeline' in tag.text or 'pipeline' in tag.text.lower():
-                            pipeline_id = tag.text.split(':')[-1].strip()
-                            break
-                except:
-                    pass
+                # Create a unique key for this test group (timestamp + record_type)
+                unique_key = f"{group_key}_{record_type}"
 
-                test_info['pipeline_id'] = pipeline_id
+                if unique_key not in test_groups:
+                    test_groups[unique_key] = {
+                        'record_type': record_type,
+                        'execution_time': test_info['execution_time'],
+                        'pre_status': None,
+                        'post_status': None,
+                        'group_key': group_key
+                    }
 
-                executions.append(test_info)
+                # Store pre or post status
+                if check_type == 'pre_check':
+                    test_groups[unique_key]['pre_status'] = status
+                else:
+                    test_groups[unique_key]['post_status'] = status
+
+    # Convert grouped tests to final list with merged status
+    merged_executions = []
+
+    for unique_key, test_group in test_groups.items():
+        pre_status = test_group['pre_status']
+        post_status = test_group['post_status']
+
+        # Determine final status: FAIL if either pre or post failed
+        if pre_status == 'FAIL' or post_status == 'FAIL':
+            final_status = 'FAIL'
+        elif pre_status == 'PASS' and post_status == 'PASS':
+            final_status = 'PASS'
+        elif pre_status == 'PASS' or post_status == 'PASS':
+            # At least one passed, other might be None
+            final_status = 'PASS'
+        else:
+            final_status = 'UNKNOWN'
+
+        merged_executions.append({
+            'record_type': test_group['record_type'],
+            'status': final_status,
+            'execution_time': test_group['execution_time'],
+            'pipeline_id': get_pipeline_id_from_filename(test_group['group_key']),
+            'grid_host': os.environ.get('GRID_HOST', 'N/A'),
+            'operation': os.environ.get('OPERATION_TYPE', 'N/A')
+        })
 
     # Sort by execution time (most recent first)
-    executions.sort(key=lambda x: x['execution_time'], reverse=True)
+    merged_executions.sort(key=lambda x: x['execution_time'], reverse=True)
 
-    return executions
+    return merged_executions
 
 
-def generate_html_report(executions, output_file, grid_host=None, pipeline_id=None):
+def generate_html_report(executions, output_file):
     """Generate simplified HTML execution report."""
 
     # Calculate summary statistics
     total_tests = len(executions)
     passed_tests = sum(1 for e in executions if e['status'] == 'PASS')
     failed_tests = sum(1 for e in executions if e['status'] == 'FAIL')
-
-    # Group by record type for unique count
-    unique_record_types = set(e['record_type'] for e in executions)
-
-    # Get environment variables
-    env_grid_host = os.environ.get('GRID_HOST', grid_host or 'N/A')
-    env_pipeline_id = os.environ.get('CI_PIPELINE_ID', pipeline_id or 'N/A')
-    env_record_type = os.environ.get('RECORD_TYPE', 'N/A')
-    env_operation = os.environ.get('OPERATION_TYPE', 'N/A')
 
     html_content = f"""<!DOCTYPE html>
 <html>
@@ -204,7 +188,7 @@ def generate_html_report(executions, output_file, grid_host=None, pipeline_id=No
         }}
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
             padding: 20px;
             min-height: 100vh;
         }}
@@ -212,84 +196,45 @@ def generate_html_report(executions, output_file, grid_host=None, pipeline_id=No
             max-width: 1400px;
             margin: 0 auto;
             background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             overflow: hidden;
         }}
 
         /* Banner */
         .banner {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
             color: white;
-            padding: 40px;
+            padding: 30px 40px;
             text-align: center;
         }}
         .banner h1 {{
-            font-size: 36px;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }}
-        .banner .subtitle {{
-            font-size: 16px;
-            opacity: 0.9;
-            margin-bottom: 30px;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 20px;
         }}
         .stats-container {{
             display: flex;
             justify-content: center;
-            gap: 30px;
-            margin-top: 30px;
+            gap: 20px;
+            margin-top: 20px;
             flex-wrap: wrap;
         }}
         .stat-box {{
-            background: rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.15);
             backdrop-filter: blur(10px);
-            border-radius: 12px;
-            padding: 20px 30px;
-            min-width: 150px;
+            border-radius: 8px;
+            padding: 15px 25px;
+            min-width: 120px;
         }}
         .stat-label {{
-            font-size: 14px;
+            font-size: 13px;
             opacity: 0.9;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }}
         .stat-value {{
-            font-size: 42px;
-            font-weight: 700;
-        }}
-        .stat-value.success {{
-            color: #10b981;
-        }}
-        .stat-value.danger {{
-            color: #ef4444;
-        }}
-
-        /* Pipeline Info */
-        .pipeline-info {{
-            background: #f8f9fa;
-            padding: 20px 40px;
-            border-bottom: 1px solid #e5e7eb;
-        }}
-        .pipeline-info .info-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-        }}
-        .info-item {{
-            display: flex;
-            flex-direction: column;
-        }}
-        .info-label {{
-            font-size: 12px;
-            color: #6b7280;
+            font-size: 32px;
             font-weight: 600;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }}
-        .info-value {{
-            font-size: 16px;
-            color: #111827;
-            font-weight: 500;
         }}
 
         /* Content */
@@ -298,11 +243,10 @@ def generate_html_report(executions, output_file, grid_host=None, pipeline_id=No
         }}
 
         h2 {{
-            font-size: 24px;
+            font-size: 20px;
             color: #111827;
             margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #e5e7eb;
+            font-weight: 600;
         }}
 
         /* Test Table */
@@ -311,40 +255,47 @@ def generate_html_report(executions, output_file, grid_host=None, pipeline_id=No
             border-collapse: separate;
             border-spacing: 0;
             margin-top: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
         }}
         .test-table thead {{
-            background: #f9fafb;
+            background: #f3f4f6;
         }}
         .test-table th {{
-            padding: 16px;
+            padding: 14px 16px;
             text-align: left;
             font-weight: 600;
             color: #374151;
-            font-size: 14px;
+            font-size: 13px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             border-bottom: 2px solid #e5e7eb;
         }}
         .test-table td {{
-            padding: 16px;
+            padding: 14px 16px;
             border-bottom: 1px solid #f3f4f6;
+            font-size: 14px;
         }}
         .test-table tbody tr {{
-            transition: background-color 0.2s;
+            transition: background-color 0.15s;
         }}
         .test-table tbody tr:hover {{
             background-color: #f9fafb;
+        }}
+        .test-table tbody tr:last-child td {{
+            border-bottom: none;
         }}
 
         /* Status Badge */
         .status-badge {{
             display: inline-flex;
             align-items: center;
-            padding: 6px 16px;
-            border-radius: 20px;
+            padding: 5px 14px;
+            border-radius: 16px;
             font-weight: 600;
-            font-size: 14px;
-            gap: 6px;
+            font-size: 13px;
+            gap: 5px;
         }}
         .status-badge.pass {{
             background: #d1fae5;
@@ -354,20 +305,17 @@ def generate_html_report(executions, output_file, grid_host=None, pipeline_id=No
             background: #fee2e2;
             color: #991b1b;
         }}
-        .status-icon {{
-            font-size: 16px;
-        }}
 
-        /* Record Type Badge */
+        /* Record Type */
         .record-type {{
             font-weight: 600;
-            font-size: 15px;
+            font-size: 14px;
             color: #111827;
         }}
 
-        /* Time */
-        .execution-time {{
-            color: #6b7280;
+        /* Cell styling */
+        .cell-value {{
+            color: #4b5563;
             font-size: 14px;
         }}
 
@@ -375,20 +323,11 @@ def generate_html_report(executions, output_file, grid_host=None, pipeline_id=No
         .pipeline-id {{
             font-family: 'Courier New', monospace;
             background: #f3f4f6;
-            padding: 4px 8px;
+            padding: 3px 8px;
             border-radius: 4px;
             font-size: 13px;
             color: #4b5563;
-        }}
-
-        /* JSON Info */
-        .json-info {{
-            font-size: 13px;
-            color: #6b7280;
-        }}
-        .json-info .count {{
-            font-weight: 600;
-            color: #4b5563;
+            display: inline-block;
         }}
 
         /* Footer */
@@ -398,7 +337,7 @@ def generate_html_report(executions, output_file, grid_host=None, pipeline_id=No
             border-top: 1px solid #e5e7eb;
             text-align: center;
             color: #6b7280;
-            font-size: 14px;
+            font-size: 13px;
         }}
 
         /* Empty State */
@@ -426,7 +365,6 @@ def generate_html_report(executions, output_file, grid_host=None, pipeline_id=No
         <!-- Banner -->
         <div class="banner">
             <h1>🎯 Test Execution Summary</h1>
-            <div class="subtitle">Comprehensive overview of test executions across all pipelines</div>
 
             <div class="stats-container">
                 <div class="stat-box">
@@ -435,37 +373,11 @@ def generate_html_report(executions, output_file, grid_host=None, pipeline_id=No
                 </div>
                 <div class="stat-box">
                     <div class="stat-label">Passed</div>
-                    <div class="stat-value success">{passed_tests}</div>
+                    <div class="stat-value">{passed_tests}</div>
                 </div>
                 <div class="stat-box">
                     <div class="stat-label">Failed</div>
-                    <div class="stat-value danger">{failed_tests}</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Pipeline Info -->
-        <div class="pipeline-info">
-            <div class="info-grid">
-                <div class="info-item">
-                    <div class="info-label">Grid Host</div>
-                    <div class="info-value">{env_grid_host}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Pipeline ID</div>
-                    <div class="info-value">#{env_pipeline_id}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Record Type</div>
-                    <div class="info-value">{env_record_type}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Operation</div>
-                    <div class="info-value">{env_operation}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Generated</div>
-                    <div class="info-value">{datetime.now().strftime('%Y-%m-%d %H:%M')}</div>
+                    <div class="stat-value">{failed_tests}</div>
                 </div>
             </div>
         </div>
@@ -488,27 +400,24 @@ def generate_html_report(executions, output_file, grid_host=None, pipeline_id=No
             <table class="test-table">
                 <thead>
                     <tr>
-                        <th>Test Suite</th>
+                        <th>Record Type</th>
                         <th>Status</th>
                         <th>Executed On</th>
+                        <th>Grid Host</th>
                         <th>Pipeline</th>
-                        <th>JSON Data</th>
+                        <th>Operation</th>
                     </tr>
                 </thead>
                 <tbody>
 """
 
-        base_path = 'infoblox_mvp1'  # Default base path
-
         for execution in executions:
             record_type = execution['record_type']
             status = execution['status']
             exec_time = execution['execution_time']
-            pipeline = execution.get('pipeline_id', env_pipeline_id)
-
-            # Get JSON file info
-            json_info = get_json_file_info(base_path, record_type)
-            json_display = f"{json_info['record_count']} records from {json_info['grid_host']}" if json_info['exists'] else "N/A"
+            pipeline = execution.get('pipeline_id', 'N/A')
+            grid_host = execution.get('grid_host', 'N/A')
+            operation = execution.get('operation', 'N/A')
 
             # Status badge
             status_class = 'pass' if status == 'PASS' else 'fail'
@@ -521,20 +430,21 @@ def generate_html_report(executions, output_file, grid_host=None, pipeline_id=No
                         </td>
                         <td>
                             <span class="status-badge {status_class}">
-                                <span class="status-icon">{status_icon}</span>
+                                <span>{status_icon}</span>
                                 {status}
                             </span>
                         </td>
                         <td>
-                            <div class="execution-time">{exec_time}</div>
+                            <div class="cell-value">{exec_time}</div>
+                        </td>
+                        <td>
+                            <div class="cell-value">{grid_host}</div>
                         </td>
                         <td>
                             <span class="pipeline-id">#{pipeline}</span>
                         </td>
                         <td>
-                            <div class="json-info">
-                                <span class="count">{json_display}</span>
-                            </div>
+                            <div class="cell-value">{operation}</div>
                         </td>
                     </tr>
 """
@@ -544,12 +454,12 @@ def generate_html_report(executions, output_file, grid_host=None, pipeline_id=No
             </table>
 """
 
-    html_content += """
+    html_content += f"""
         </div>
 
         <!-- Footer -->
         <div class="footer">
-            <p>Generated by Robot Framework Execution Tracker | Data tracked using ExecutionCounter.py and merge_reports.py</p>
+            <p>Generated by Robot Framework Execution Tracker | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
         </div>
     </div>
 </body>
@@ -574,10 +484,10 @@ def main():
     print(f"Base Path: {base_path}")
     print("-" * 80)
 
-    # Collect all test executions
-    executions = collect_test_executions(base_path)
+    # Collect and merge test executions
+    executions = collect_and_merge_test_executions(base_path)
 
-    print(f"\nFound {len(executions)} test execution(s)")
+    print(f"\nFound {len(executions)} merged test execution(s)")
 
     # Ensure output directory exists
     output_dir = f'{base_path}/robot_reports'
@@ -586,11 +496,7 @@ def main():
     # Generate HTML report
     output_file = f'{output_dir}/execution_summary.html'
 
-    # Get environment variables for context
-    grid_host = os.environ.get('GRID_HOST')
-    pipeline_id = os.environ.get('CI_PIPELINE_ID')
-
-    generate_html_report(executions, output_file, grid_host, pipeline_id)
+    generate_html_report(executions, output_file)
 
     print("\n[OK] Execution summary report generation complete!")
 

@@ -855,7 +855,7 @@ post_implementation:
       - infoblox_mvp1/robot_reports/execution_counters/
     expire_in: 1 week
   tags:
-    - aws-eks-elz-ent-ens-01
+    - aws-eks-elz-ent-ens-01-01
 
 generate_execution_report:
   stage: post-implementation
@@ -876,8 +876,19 @@ generate_execution_report:
       echo "=========================================="
       echo ""
 
-      # Generate comprehensive execution report
-      # Pass environment variables to the script
+      # Configure git FIRST before any operations
+      git config --global user.name "GitLab_Runner"
+      git config --global user.email "ens@amfam.com"
+      
+      # Set pull strategy to avoid divergent branches warning
+      git config --global pull.rebase true
+      
+      # Fetch and reset to ensure clean state
+      echo "Syncing with remote repository..."
+      git fetch origin main
+      git reset --hard origin/main
+      
+      # Now generate the report
       export GRID_HOST="$GRID_HOST"
       export RECORD_TYPE="$RECORD_TYPE"
       export OPERATION_TYPE="$OPERATION_TYPE"
@@ -893,13 +904,15 @@ generate_execution_report:
       echo "View at: ${CI_PROJECT_URL}/-/blob/main/infoblox_mvp1/robot_reports/execution_summary.html"
       echo "=========================================="
 
-      # Commit execution summary report
-      git pull origin main || true
+      # Add and commit the execution summary report
       git add -f infoblox_mvp1/robot_reports/execution_summary.html || true
 
       if ! git diff --cached --quiet; then
         git commit -m "Update execution statistics report [Pipeline: ${CI_PIPELINE_ID}]"
         git remote set-url origin "https://GitLab_Runner:${GITLAB_CI_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+
+        # Pull with rebase to handle any concurrent changes
+        git pull --rebase origin main || true
 
         # Push with retry
         for i in 1 2 3; do
@@ -923,3 +936,4 @@ generate_execution_report:
     expire_in: 1 week
   tags:
     - aws-eks-elz-ent-ens-01-01
+    
