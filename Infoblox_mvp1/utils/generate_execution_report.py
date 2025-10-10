@@ -54,26 +54,17 @@ def parse_robot_output(output_file):
         elif 'Network' in suite_name or 'network' in suite_name.lower():
             record_type = 'network'
 
-        # Try to extract pipeline ID from metadata/tags
+        # Try to extract pipeline ID, grid_host, operation from variables
         pipeline_id = None
         grid_host = None
         operation = None
 
-        # Look for metadata tags
-        for tag in root.findall('.//tag'):
-            tag_text = tag.text or ''
-            if 'Pipeline' in tag_text or 'PIPELINE' in tag_text:
-                # Extract pipeline ID from tag like "Pipeline: 12345"
-                parts = tag_text.split(':')
-                if len(parts) > 1:
-                    pipeline_id = parts[1].strip()
-
-        # Look for variables
+        # Look for variables in the XML
         for var in root.findall('.//var'):
             var_name = var.get('name', '')
             var_value = var.text or ''
 
-            if var_name == 'PIPELINE_ID' or var_name == 'CI_PIPELINE_ID':
+            if var_name in ['PIPELINE_ID', 'CI_PIPELINE_ID']:
                 pipeline_id = var_value
             elif var_name == 'GRID_HOST':
                 grid_host = var_value
@@ -100,8 +91,7 @@ def collect_and_merge_test_executions(base_path):
     Returns:
         list: List of merged test execution records (one per pipeline run per record type)
     """
-    # Dictionary to group tests by pipeline run
-    # Key format: "pipeline_id_record_type" or "timestamp_record_type" if no pipeline ID
+    # Dictionary to group tests by timestamp (within 10 minutes window)
     test_groups = {}
 
     # Check both pre_check and post_check history
@@ -122,11 +112,12 @@ def collect_and_merge_test_executions(base_path):
                 # timestamp_str format: 20250120_164530
                 dt = datetime.strptime(timestamp_str, '%Y%m%d_%H%M%S')
                 file_timestamp = dt.strftime('%Y-%m-%d %H:%M')
-                # Use date only for grouping (same day runs belong together)
-                date_key = timestamp_str[:8]  # YYYYMMDD
+                # Round to nearest 10 minutes for grouping pre/post from same run
+                rounded_dt = dt.replace(minute=(dt.minute // 10) * 10, second=0, microsecond=0)
+                group_time = rounded_dt.strftime('%Y%m%d_%H%M')
             except:
                 file_timestamp = 'N/A'
-                date_key = filename
+                group_time = timestamp_str[:13] if len(timestamp_str) > 13 else timestamp_str
 
             # Parse the XML file
             test_info = parse_robot_output(xml_file)
@@ -142,14 +133,9 @@ def collect_and_merge_test_executions(base_path):
                 grid_host = test_info.get('grid_host')
                 operation = test_info.get('operation')
 
-                # Create grouping key
-                # If we have pipeline ID from XML, use it for grouping
-                # Otherwise use timestamp for grouping
-                if pipeline_id:
-                    group_key = f"{pipeline_id}_{record_type}"
-                else:
-                    # Use full timestamp for more precise grouping
-                    group_key = f"{timestamp_str}_{record_type}"
+                # Create grouping key using rounded timestamp and record type
+                # This groups pre and post from the same pipeline run (within 10 min window)
+                group_key = f"{group_time}_{record_type}"
 
                 if group_key not in test_groups:
                     test_groups[group_key] = {
@@ -158,17 +144,17 @@ def collect_and_merge_test_executions(base_path):
                         'pre_status': None,
                         'post_status': None,
                         'pipeline_id': pipeline_id or 'N/A',
-                        'grid_host': grid_host or os.environ.get('GRID_HOST', 'N/A'),
-                        'operation': operation or os.environ.get('OPERATION_TYPE', 'N/A'),
+                        'grid_host': grid_host or 'N/A',
+                        'operation': operation or 'N/A',
                         'timestamp_str': timestamp_str
                     }
                 else:
                     # Update pipeline_id, grid_host, operation if found in subsequent file
-                    if pipeline_id:
+                    if pipeline_id and test_groups[group_key]['pipeline_id'] == 'N/A':
                         test_groups[group_key]['pipeline_id'] = pipeline_id
-                    if grid_host:
+                    if grid_host and test_groups[group_key]['grid_host'] == 'N/A':
                         test_groups[group_key]['grid_host'] = grid_host
-                    if operation:
+                    if operation and test_groups[group_key]['operation'] == 'N/A':
                         test_groups[group_key]['operation'] = operation
 
                 # Store pre or post status
