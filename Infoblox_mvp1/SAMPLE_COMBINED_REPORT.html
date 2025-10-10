@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pre Check - Combined History (Sample)</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 30px;
+            border-bottom: 2px solid #6c757d;
+            padding-bottom: 5px;
+        }
+        .summary {
+            background-color: #e9ecef;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            display: flex;
+            justify-content: space-around;
+        }
+        .summary-item {
+            text-align: center;
+        }
+        .summary-label {
+            font-weight: bold;
+            color: #495057;
+            font-size: 14px;
+        }
+        .summary-value {
+            font-size: 32px;
+            color: #007bff;
+            font-weight: bold;
+        }
+
+        /* History Table Styles */
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .history-table th {
+            background-color: #007bff;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .history-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .history-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        /* Run Sections */
+        .run-section {
+            margin: 30px 0;
+            border: 2px solid #dee2e6;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .run-header {
+            background-color: #343a40;
+            color: white;
+            padding: 15px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .run-header:hover {
+            background-color: #23272b;
+        }
+        .run-header .run-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .run-header .run-stats {
+            font-size: 14px;
+        }
+        .run-tests {
+            padding: 20px;
+            background-color: #fff;
+        }
+        .test-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-left: 4px solid #ccc;
+            background-color: #f8f9fa;
+        }
+        .test-item.pass {
+            border-left-color: #28a745;
+        }
+        .test-item.fail {
+            border-left-color: #dc3545;
+        }
+        .test-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        .test-status {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        /* Status Icons */
+        .status-pass {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .status-fail {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        /* Compact History Table */
+        .compact-history {
+            margin: 30px 0;
+        }
+        .compact-history table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .compact-history th {
+            background-color: #343a40;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: 600;
+        }
+        .compact-history td {
+            padding: 8px;
+            border: 1px solid #dee2e6;
+            text-align: center;
+        }
+        .compact-history tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .compact-history .test-name-col {
+            text-align: left;
+            font-weight: 600;
+            background-color: #e9ecef;
+        }
+
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+            color: #6c757d;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Pre Check - Combined History Report</h1>
+        <p style="color: #6c757d;">Last 10 Test Runs | Generated: 2025-01-20 16:45:30</p>
+
+        <div class="summary">
+            <div class="summary-item">
+                <div class="summary-label">Total Runs</div>
+                <div class="summary-value">10</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Total Test Executions</div>
+                <div class="summary-value">50</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Passed</div>
+                <div class="summary-value" style="color: #28a745;">47</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Failed</div>
+                <div class="summary-value" style="color: #dc3545;">3</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Pass Rate</div>
+                <div class="summary-value">94.0%</div>
+            </div>
+        </div>
+
+        <h2>📋 Compact History View - All Tests Across All Runs</h2>
+        <p style="color: #6c757d; margin-bottom: 20px;">
+            This table shows each test's results across all 10 pipeline runs.
+            ✅ = PASS | ❌ = FAIL | Each column represents one pipeline run.
+        </p>
+
+        <div class="compact-history">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="text-align: left; min-width: 300px;">Test Name</th>
+                        <th>Run #1<br/>01-15<br/>10:00</th>
+                        <th>Run #2<br/>01-15<br/>11:30</th>
+                        <th>Run #3<br/>01-16<br/>09:00</th>
+                        <th>Run #4<br/>01-16<br/>14:20</th>
+                        <th>Run #5<br/>01-17<br/>10:15</th>
+                        <th>Run #6<br/>01-17<br/>15:45</th>
+                        <th>Run #7<br/>01-18<br/>11:00</th>
+                        <th>Run #8<br/>01-19<br/>10:30</th>
+                        <th>Run #9<br/>01-19<br/>16:00</th>
+                        <th>Run #10<br/>01-20<br/>09:15</th>
+                        <th>Pass Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="test-name-col">Validate A Record JSON File Exists</td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-fail">❌</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td style="font-weight: bold; background-color: #d4edda;">90%</td>
+                    </tr>
+                    <tr>
+                        <td class="test-name-col">Validate A Record Required Fields</td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td style="font-weight: bold; background-color: #d4edda;">100%</td>
+                    </tr>
+                    <tr>
+                        <td class="test-name-col">Validate A Record IPv4 Addresses</td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-fail">❌</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td style="font-weight: bold; background-color: #d4edda;">90%</td>
+                    </tr>
+                    <tr>
+                        <td class="test-name-col">Validate A Record DNS Zones Exist</td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td style="font-weight: bold; background-color: #d4edda;">100%</td>
+                    </tr>
+                    <tr>
+                        <td class="test-name-col">Check For Duplicate A Records</td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-fail">❌</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td><span class="status-pass">✅</span></td>
+                        <td style="font-weight: bold; background-color: #d4edda;">90%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h2>📂 Detailed View - Individual Test Runs</h2>
+        <p style="color: #6c757d; margin-bottom: 20px;">
+            Click on each run to see detailed test results. Each run shows all tests executed in that pipeline.
+        </p>
+
+        <!-- Run #1 -->
+        <div class="run-section">
+            <div class="run-header">
+                <div class="run-title">
+                    🔹 Run #1 - January 15, 2025 at 10:00 AM
+                </div>
+                <div class="run-stats">
+                    5 tests | <span style="color: #28a745;">5 passed</span> | <span style="color: #dc3545;">0 failed</span> | 100.0%
+                </div>
+            </div>
+            <div class="run-tests">
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record JSON File Exists</div>
+                    <div class="test-status">Status: PASS | Duration: 0.234s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record Required Fields</div>
+                    <div class="test-status">Status: PASS | Duration: 1.456s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record IPv4 Addresses</div>
+                    <div class="test-status">Status: PASS | Duration: 2.123s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record DNS Zones Exist</div>
+                    <div class="test-status">Status: PASS | Duration: 3.567s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Check For Duplicate A Records</div>
+                    <div class="test-status">Status: PASS | Duration: 2.890s</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Run #2 -->
+        <div class="run-section">
+            <div class="run-header">
+                <div class="run-title">
+                    🔹 Run #2 - January 15, 2025 at 11:30 AM
+                </div>
+                <div class="run-stats">
+                    5 tests | <span style="color: #28a745;">4 passed</span> | <span style="color: #dc3545;">1 failed</span> | 80.0%
+                </div>
+            </div>
+            <div class="run-tests">
+                <div class="test-item fail">
+                    <div class="test-name">❌ Validate A Record JSON File Exists</div>
+                    <div class="test-status">Status: FAIL | Duration: 0.189s | Error: File not found: /path/to/a_record.json</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record Required Fields</div>
+                    <div class="test-status">Status: PASS | Duration: 1.423s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record IPv4 Addresses</div>
+                    <div class="test-status">Status: PASS | Duration: 2.087s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record DNS Zones Exist</div>
+                    <div class="test-status">Status: PASS | Duration: 3.456s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Check For Duplicate A Records</div>
+                    <div class="test-status">Status: PASS | Duration: 2.765s</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Run #3 -->
+        <div class="run-section">
+            <div class="run-header">
+                <div class="run-title">
+                    🔹 Run #3 - January 16, 2025 at 09:00 AM
+                </div>
+                <div class="run-stats">
+                    5 tests | <span style="color: #28a745;">5 passed</span> | <span style="color: #dc3545;">0 failed</span> | 100.0%
+                </div>
+            </div>
+            <div class="run-tests">
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record JSON File Exists</div>
+                    <div class="test-status">Status: PASS | Duration: 0.245s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record Required Fields</div>
+                    <div class="test-status">Status: PASS | Duration: 1.489s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record IPv4 Addresses</div>
+                    <div class="test-status">Status: PASS | Duration: 2.234s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record DNS Zones Exist</div>
+                    <div class="test-status">Status: PASS | Duration: 3.678s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Check For Duplicate A Records</div>
+                    <div class="test-status">Status: PASS | Duration: 2.901s</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Run #4 -->
+        <div class="run-section">
+            <div class="run-header">
+                <div class="run-title">
+                    🔹 Run #4 - January 16, 2025 at 02:20 PM
+                </div>
+                <div class="run-stats">
+                    5 tests | <span style="color: #28a745;">4 passed</span> | <span style="color: #dc3545;">1 failed</span> | 80.0%
+                </div>
+            </div>
+            <div class="run-tests">
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record JSON File Exists</div>
+                    <div class="test-status">Status: PASS | Duration: 0.198s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record Required Fields</div>
+                    <div class="test-status">Status: PASS | Duration: 1.367s</div>
+                </div>
+                <div class="test-item fail">
+                    <div class="test-name">❌ Validate A Record IPv4 Addresses</div>
+                    <div class="test-status">Status: FAIL | Duration: 1.956s | Error: Invalid IP address format: 192.168.1</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record DNS Zones Exist</div>
+                    <div class="test-status">Status: PASS | Duration: 3.234s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Check For Duplicate A Records</div>
+                    <div class="test-status">Status: PASS | Duration: 2.678s</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Run #5 -->
+        <div class="run-section">
+            <div class="run-header">
+                <div class="run-title">
+                    🔹 Run #5 - January 17, 2025 at 10:15 AM
+                </div>
+                <div class="run-stats">
+                    5 tests | <span style="color: #28a745;">5 passed</span> | <span style="color: #dc3545;">0 failed</span> | 100.0%
+                </div>
+            </div>
+            <div class="run-tests">
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record JSON File Exists</div>
+                    <div class="test-status">Status: PASS | Duration: 0.223s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record Required Fields</div>
+                    <div class="test-status">Status: PASS | Duration: 1.445s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record IPv4 Addresses</div>
+                    <div class="test-status">Status: PASS | Duration: 2.156s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record DNS Zones Exist</div>
+                    <div class="test-status">Status: PASS | Duration: 3.589s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Check For Duplicate A Records</div>
+                    <div class="test-status">Status: PASS | Duration: 2.834s</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Run #6 -->
+        <div class="run-section">
+            <div class="run-header">
+                <div class="run-title">
+                    🔹 Run #6 - January 17, 2025 at 03:45 PM
+                </div>
+                <div class="run-stats">
+                    5 tests | <span style="color: #28a745;">4 passed</span> | <span style="color: #dc3545;">1 failed</span> | 80.0%
+                </div>
+            </div>
+            <div class="run-tests">
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record JSON File Exists</div>
+                    <div class="test-status">Status: PASS | Duration: 0.212s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record Required Fields</div>
+                    <div class="test-status">Status: PASS | Duration: 1.478s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record IPv4 Addresses</div>
+                    <div class="test-status">Status: PASS | Duration: 2.198s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record DNS Zones Exist</div>
+                    <div class="test-status">Status: PASS | Duration: 3.612s</div>
+                </div>
+                <div class="test-item fail">
+                    <div class="test-name">❌ Check For Duplicate A Records</div>
+                    <div class="test-status">Status: FAIL | Duration: 2.567s | Error: Duplicate record found: testhost.amfam.com</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Run #7 -->
+        <div class="run-section">
+            <div class="run-header">
+                <div class="run-title">
+                    🔹 Run #7 - January 18, 2025 at 11:00 AM
+                </div>
+                <div class="run-stats">
+                    5 tests | <span style="color: #28a745;">5 passed</span> | <span style="color: #dc3545;">0 failed</span> | 100.0%
+                </div>
+            </div>
+            <div class="run-tests">
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record JSON File Exists</div>
+                    <div class="test-status">Status: PASS | Duration: 0.229s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record Required Fields</div>
+                    <div class="test-status">Status: PASS | Duration: 1.434s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record IPv4 Addresses</div>
+                    <div class="test-status">Status: PASS | Duration: 2.167s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record DNS Zones Exist</div>
+                    <div class="test-status">Status: PASS | Duration: 3.543s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Check For Duplicate A Records</div>
+                    <div class="test-status">Status: PASS | Duration: 2.812s</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Run #8 -->
+        <div class="run-section">
+            <div class="run-header">
+                <div class="run-title">
+                    🔹 Run #8 - January 19, 2025 at 10:30 AM
+                </div>
+                <div class="run-stats">
+                    5 tests | <span style="color: #28a745;">5 passed</span> | <span style="color: #dc3545;">0 failed</span> | 100.0%
+                </div>
+            </div>
+            <div class="run-tests">
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record JSON File Exists</div>
+                    <div class="test-status">Status: PASS | Duration: 0.241s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record Required Fields</div>
+                    <div class="test-status">Status: PASS | Duration: 1.467s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record IPv4 Addresses</div>
+                    <div class="test-status">Status: PASS | Duration: 2.189s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record DNS Zones Exist</div>
+                    <div class="test-status">Status: PASS | Duration: 3.578s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Check For Duplicate A Records</div>
+                    <div class="test-status">Status: PASS | Duration: 2.845s</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Run #9 -->
+        <div class="run-section">
+            <div class="run-header">
+                <div class="run-title">
+                    🔹 Run #9 - January 19, 2025 at 04:00 PM
+                </div>
+                <div class="run-stats">
+                    5 tests | <span style="color: #28a745;">5 passed</span> | <span style="color: #dc3545;">0 failed</span> | 100.0%
+                </div>
+            </div>
+            <div class="run-tests">
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record JSON File Exists</div>
+                    <div class="test-status">Status: PASS | Duration: 0.236s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record Required Fields</div>
+                    <div class="test-status">Status: PASS | Duration: 1.456s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record IPv4 Addresses</div>
+                    <div class="test-status">Status: PASS | Duration: 2.176s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record DNS Zones Exist</div>
+                    <div class="test-status">Status: PASS | Duration: 3.601s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Check For Duplicate A Records</div>
+                    <div class="test-status">Status: PASS | Duration: 2.867s</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Run #10 -->
+        <div class="run-section">
+            <div class="run-header">
+                <div class="run-title">
+                    🔹 Run #10 - January 20, 2025 at 09:15 AM
+                </div>
+                <div class="run-stats">
+                    5 tests | <span style="color: #28a745;">5 passed</span> | <span style="color: #dc3545;">0 failed</span> | 100.0%
+                </div>
+            </div>
+            <div class="run-tests">
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record JSON File Exists</div>
+                    <div class="test-status">Status: PASS | Duration: 0.227s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record Required Fields</div>
+                    <div class="test-status">Status: PASS | Duration: 1.442s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record IPv4 Addresses</div>
+                    <div class="test-status">Status: PASS | Duration: 2.145s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Validate A Record DNS Zones Exist</div>
+                    <div class="test-status">Status: PASS | Duration: 3.534s</div>
+                </div>
+                <div class="test-item pass">
+                    <div class="test-name">✅ Check For Duplicate A Records</div>
+                    <div class="test-status">Status: PASS | Duration: 2.823s</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>How to read this report:</strong></p>
+            <ul>
+                <li><strong>Compact History Table:</strong> Shows all tests across all runs in one view. Great for spotting patterns and flaky tests.</li>
+                <li><strong>Detailed View:</strong> Each run section shows all tests executed in that specific pipeline run.</li>
+                <li><strong>Pass Rate:</strong> Calculated as (Passed Tests / Total Tests) × 100%</li>
+                <li><strong>Flaky Tests:</strong> Tests with pass rates < 100% need investigation</li>
+            </ul>
+            <p>This report is generated by Robot Framework's rebot tool with merge=False, showing accumulative history.</p>
+            <p>Data tracked using ExecutionCounter.py and merged using merge_reports.py</p>
+        </div>
+    </div>
+</body>
+</html>

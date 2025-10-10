@@ -3,7 +3,11 @@
     "allow": [
       "Bash(python3:*)",
       "Bash(cat:*)",
-      "Bash(python test:*)"
+      "Bash(python test:*)",
+      "Bash(for:*)",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(head:*)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []

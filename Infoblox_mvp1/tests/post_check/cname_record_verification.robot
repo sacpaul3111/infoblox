@@ -4,8 +4,10 @@ Library           ../../utils/robot/InfobloxAPI.py
 Library           ../../utils/robot/ExecutionCounter.py
 Library           Collections
 Library           OperatingSystem
+Library           BuiltIn
 Suite Setup       Setup Execution Tracking
 Suite Teardown    Teardown Execution Tracking
+Test Teardown     Record Individual Test Result
 
 *** Variables ***
 ${GRID_HOST}              cabgridmgr.amfam.com
@@ -60,8 +62,6 @@ Setup Execution Tracking
     [Documentation]    Initialize execution tracking for this test suite
     Initialize Execution Counter    ${COUNTER_FILE}
     Log    📊 Execution tracking initialized    INFO
-    Record Test Execution    CNAME Record Verification Suite
-    Log Execution Statistics
 
 Teardown Execution Tracking
     [Documentation]    Save execution tracking data and display statistics
@@ -69,3 +69,10 @@ Teardown Execution Tracking
     Save Execution Counter
     ${total}=    Get Total Test Executions
     Log    ✅ Total test suite executions: ${total}    INFO
+
+Record Individual Test Result
+    [Documentation]    Record the result of each individual test
+    ${test_name}=    Set Variable    ${TEST NAME}
+    ${test_status}=    Set Variable    ${TEST STATUS}
+    Record Test Execution    ${test_name}    ${test_status}
+    Log    📊 Recorded: ${test_name} - ${test_status}    INFO

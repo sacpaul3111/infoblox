@@ -55,21 +55,23 @@ def merge_robot_reports(report_type='pre_check', max_history=10, base_path='info
     print(f"\nMerging {len(output_files)} test runs...")
 
     # Merge all outputs into combined report
+    # Using merge=False to show each run as separate suites (accumulative history)
     try:
         rebot(
             *output_files,
-            name=f"{report_type.replace('_', ' ').title()} - Combined History",
+            name=f"{report_type.replace('_', ' ').title()} - Combined History (Last {len(output_files)} Runs)",
             outputdir=base_dir,
             output='combined_output.xml',
             log='combined_log.html',
             report='combined_report.html',
-            merge=True
+            merge=False  # Keep each run separate to show history
         )
 
         print(f"\n✓ Successfully merged reports!")
         print(f"  Combined report: {base_dir}/combined_report.html")
         print(f"  Combined log: {base_dir}/combined_log.html")
         print(f"  Total runs merged: {len(output_files)}")
+        print(f"  📊 Each run shows as a separate suite in the combined report")
 
         return True
 

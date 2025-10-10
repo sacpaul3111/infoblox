@@ -46,11 +46,12 @@ class ExecutionCounter:
             logger.info(f"Created new execution counter: {counter_file_path}")
 
     @keyword('Increment Test Execution Count')
-    def increment_test_execution_count(self, test_name):
+    def increment_test_execution_count(self, test_name, status='PASS'):
         """Increment the execution count for a specific test.
 
         Args:
             test_name: Name of the test
+            status: Test status ('PASS' or 'FAIL')
 
         Returns:
             int: New execution count
@@ -58,16 +59,32 @@ class ExecutionCounter:
         if test_name not in self.counter_data:
             self.counter_data[test_name] = {
                 'count': 0,
+                'pass_count': 0,
+                'fail_count': 0,
                 'first_run': datetime.now().isoformat(),
                 'last_run': None,
+                'last_status': None,
                 'history': []
             }
 
         self.counter_data[test_name]['count'] += 1
         self.counter_data[test_name]['last_run'] = datetime.now().isoformat()
+        self.counter_data[test_name]['last_status'] = status
+
+        # Track pass/fail counts
+        if status == 'PASS':
+            self.counter_data[test_name]['pass_count'] += 1
+        else:
+            self.counter_data[test_name]['fail_count'] += 1
+
+        # Calculate pass rate
+        pass_rate = (self.counter_data[test_name]['pass_count'] / self.counter_data[test_name]['count']) * 100
+
         self.counter_data[test_name]['history'].append({
             'timestamp': datetime.now().isoformat(),
-            'run_number': self.counter_data[test_name]['count']
+            'run_number': self.counter_data[test_name]['count'],
+            'status': status,
+            'pass_rate': round(pass_rate, 2)
         })
 
         # Keep only last 50 runs in history
@@ -75,7 +92,7 @@ class ExecutionCounter:
             self.counter_data[test_name]['history'] = self.counter_data[test_name]['history'][-50:]
 
         count = self.counter_data[test_name]['count']
-        logger.info(f"Test '{test_name}' execution count: {count}")
+        logger.info(f"Test '{test_name}' execution count: {count} (Status: {status}, Pass Rate: {pass_rate:.1f}%)")
 
         return count
 
@@ -162,20 +179,22 @@ class ExecutionCounter:
         logger.info("=" * 80)
 
     @keyword('Record Test Execution')
-    def record_test_execution(self, test_name):
+    def record_test_execution(self, test_name, status='PASS'):
         """Record a test execution (increment and save).
 
         This is a convenience keyword that increments the count and saves the file.
 
         Args:
             test_name: Name of the test
+            status: Test status ('PASS' or 'FAIL')
 
         Returns:
             int: New execution count
         """
-        count = self.increment_test_execution_count(test_name)
+        count = self.increment_test_execution_count(test_name, status)
         self.save_execution_counter()
 
-        logger.info(f"📊 Test '{test_name}' - Execution #{count}")
+        status_icon = "✅" if status == "PASS" else "❌"
+        logger.info(f"📊 Test '{test_name}' - Execution #{count} {status_icon}")
 
         return count
