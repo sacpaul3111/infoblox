@@ -1,124 +1,298 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Robot Framework Execution Report</title>
+    <title>Test Execution Summary</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 20px;
-            background-color: #f5f5f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
         }
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
-            background-color: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
         }
-        h1 {
-            color: #333;
-            border-bottom: 3px solid #007bff;
-            padding-bottom: 10px;
-        }
-        h2 {
-            color: #555;
-            margin-top: 30px;
-            border-bottom: 2px solid #6c757d;
-            padding-bottom: 5px;
-        }
-        .summary {
-            background-color: #e9ecef;
-            padding: 20px;
-            border-radius: 5px;
-            margin: 20px 0;
-        }
-        .summary-item {
-            display: inline-block;
-            margin: 10px 20px 10px 0;
-        }
-        .summary-label {
-            font-weight: bold;
-            color: #495057;
-        }
-        .summary-value {
-            font-size: 24px;
-            color: #007bff;
-            font-weight: bold;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }
-        th {
-            background-color: #007bff;
+
+        /* Banner */
+        .banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 12px;
+            padding: 40px;
+            text-align: center;
+        }
+        .banner h1 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .banner .subtitle {
+            font-size: 16px;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+        .stats-container {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        .stat-box {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 20px 30px;
+            min-width: 150px;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+        .stat-value {
+            font-size: 42px;
+            font-weight: 700;
+        }
+        .stat-value.success {
+            color: #10b981;
+        }
+        .stat-value.danger {
+            color: #ef4444;
+        }
+
+        /* Pipeline Info */
+        .pipeline-info {
+            background: #f8f9fa;
+            padding: 20px 40px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .pipeline-info .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .info-label {
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .info-value {
+            font-size: 16px;
+            color: #111827;
+            font-weight: 500;
+        }
+
+        /* Content */
+        .content {
+            padding: 40px;
+        }
+
+        h2 {
+            font-size: 24px;
+            color: #111827;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        /* Test Table */
+        .test-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 20px;
+        }
+        .test-table thead {
+            background: #f9fafb;
+        }
+        .test-table th {
+            padding: 16px;
             text-align: left;
             font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e5e7eb;
         }
-        td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #dee2e6;
+        .test-table td {
+            padding: 16px;
+            border-bottom: 1px solid #f3f4f6;
         }
-        tr:hover {
-            background-color: #f8f9fa;
+        .test-table tbody tr {
+            transition: background-color 0.2s;
         }
-        .timestamp {
-            color: #6c757d;
+        .test-table tbody tr:hover {
+            background-color: #f9fafb;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            gap: 6px;
+        }
+        .status-badge.pass {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .status-badge.fail {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .status-icon {
+            font-size: 16px;
+        }
+
+        /* Record Type Badge */
+        .record-type {
+            font-weight: 600;
+            font-size: 15px;
+            color: #111827;
+        }
+
+        /* Time */
+        .execution-time {
+            color: #6b7280;
             font-size: 14px;
         }
+
+        /* Pipeline ID */
+        .pipeline-id {
+            font-family: 'Courier New', monospace;
+            background: #f3f4f6;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #4b5563;
+        }
+
+        /* JSON Info */
+        .json-info {
+            font-size: 13px;
+            color: #6b7280;
+        }
+        .json-info .count {
+            font-weight: 600;
+            color: #4b5563;
+        }
+
+        /* Footer */
         .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #dee2e6;
-            color: #6c757d;
+            background: #f9fafb;
+            padding: 20px 40px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            color: #6b7280;
             font-size: 14px;
         }
-        .no-data {
+
+        /* Empty State */
+        .empty-state {
             text-align: center;
-            padding: 40px;
-            color: #6c757d;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        .empty-state-text {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        .empty-state-subtext {
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🤖 Robot Framework Execution Report</h1>
-        <p class="timestamp">Generated: 2025-10-10 08:52:25</p>
+        <!-- Banner -->
+        <div class="banner">
+            <h1>🎯 Test Execution Summary</h1>
+            <div class="subtitle">Comprehensive overview of test executions across all pipelines</div>
 
-        <div class="summary">
-            <div class="summary-item">
-                <div class="summary-label">Pre-Check Tests</div>
-                <div class="summary-value">0</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Pre-Check Executions</div>
-                <div class="summary-value">0</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Post-Check Tests</div>
-                <div class="summary-value">0</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Post-Check Executions</div>
-                <div class="summary-value">0</div>
+            <div class="stats-container">
+                <div class="stat-box">
+                    <div class="stat-label">Total Tests</div>
+                    <div class="stat-value">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Passed</div>
+                    <div class="stat-value success">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Failed</div>
+                    <div class="stat-value danger">0</div>
+                </div>
             </div>
         </div>
 
-        <h2>Pre-Check Validation Tests</h2>
-        <div class="no-data">No pre-check execution data available yet. Run the pipeline to start tracking.</div>
+        <!-- Pipeline Info -->
+        <div class="pipeline-info">
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Grid Host</div>
+                    <div class="info-value">N/A</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Pipeline ID</div>
+                    <div class="info-value">#N/A</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Record Type</div>
+                    <div class="info-value">N/A</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Operation</div>
+                    <div class="info-value">N/A</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Generated</div>
+                    <div class="info-value">2025-10-10 09:43</div>
+                </div>
+            </div>
+        </div>
 
-        <h2>Post-Implementation Verification Tests</h2>
-        <div class="no-data">No post-check execution data available yet. Run the pipeline to start tracking.</div>
+        <!-- Content -->
+        <div class="content">
+            <h2>Test Execution History</h2>
 
+            <div class="empty-state">
+                <div class="empty-state-icon">📋</div>
+                <div class="empty-state-text">No test executions found</div>
+                <div class="empty-state-subtext">Test history will appear here after running the pipeline</div>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
         <div class="footer">
-            <p>This report shows the execution history of all Robot Framework tests.</p>
-            <p>Data is tracked using ExecutionCounter.py and merged using merge_reports.py</p>
+            <p>Generated by Robot Framework Execution Tracker | Data tracked using ExecutionCounter.py and merge_reports.py</p>
         </div>
     </div>
 </body>

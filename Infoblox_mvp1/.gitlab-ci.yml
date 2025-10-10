@@ -829,7 +829,42 @@ post_implementation:
         fi
       fi
 
-      # Generate Execution Summary Report
+      # Check if tests failed and exit accordingly
+      if [ $robot_exit_code -ne 0 ]; then
+        echo ""
+        echo "=========================================="
+        echo "[WARNING] Post-implementation verification had failures"
+        echo "=========================================="
+        echo "Test reports saved to: infoblox_mvp1/robot_reports/post_check/"
+      else
+        echo "[OK] Post-implementation verification passed"
+      fi
+
+      echo ""
+      echo "Summary:"
+      echo "  - Grid: $GRID_HOST"
+      echo "  - Record Type: $RECORD_TYPE"
+      echo "  - Operation: $OPERATION_TYPE"
+      echo "  - Reports: infoblox_mvp1/robot_reports/post_check/"
+      echo "  - Direct link: ${CI_PROJECT_URL}/-/tree/main/infoblox_mvp1/robot_reports/post_check"
+
+  artifacts:
+    when: always
+    paths:
+      - infoblox_mvp1/robot_reports/post_check/
+      - infoblox_mvp1/robot_reports/execution_counters/
+    expire_in: 1 week
+  tags:
+    - aws-eks-elz-ent-ens-01
+
+generate_execution_report:
+  stage: post-implementation
+  needs:
+    - post_implementation
+  when: always
+  script:
+    - *common_script
+    - |
       echo ""
       echo "=========================================="
       echo "  EXECUTION STATISTICS REPORT"
@@ -842,6 +877,12 @@ post_implementation:
       echo ""
 
       # Generate comprehensive execution report
+      # Pass environment variables to the script
+      export GRID_HOST="$GRID_HOST"
+      export RECORD_TYPE="$RECORD_TYPE"
+      export OPERATION_TYPE="$OPERATION_TYPE"
+      export CI_PIPELINE_ID="$CI_PIPELINE_ID"
+
       python3 infoblox_mvp1/utils/generate_execution_report.py
 
       echo ""
@@ -875,31 +916,9 @@ post_implementation:
         echo "[INFO] No changes to execution summary"
       fi
 
-      # Check if tests failed and exit accordingly
-      if [ $robot_exit_code -ne 0 ]; then
-        echo ""
-        echo "=========================================="
-        echo "[WARNING] Post-implementation verification had failures"
-        echo "=========================================="
-        echo "Test reports saved to: infoblox_mvp1/robot_reports/post_check/"
-      else
-        echo "[OK] Post-implementation verification passed"
-      fi
-
-      echo ""
-      echo "Summary:"
-      echo "  - Grid: $GRID_HOST"
-      echo "  - Record Type: $RECORD_TYPE"
-      echo "  - Operation: $OPERATION_TYPE"
-      echo "  - Reports: infoblox_mvp1/robot_reports/post_check/"
-      echo "  - Execution Summary: infoblox_mvp1/robot_reports/execution_summary.html"
-      echo "  - Direct link: ${CI_PROJECT_URL}/-/tree/main/infoblox_mvp1/robot_reports/post_check"
-
   artifacts:
     when: always
     paths:
-      - infoblox_mvp1/robot_reports/post_check/
-      - infoblox_mvp1/robot_reports/execution_counters/
       - infoblox_mvp1/robot_reports/execution_summary.html
     expire_in: 1 week
   tags:
