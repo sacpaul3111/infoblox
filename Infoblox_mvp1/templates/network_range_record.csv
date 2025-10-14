@@ -1,0 +1,3 @@
+network,start_addr,end_addr,name,comment,disable,network_view,server_association_type,member,member_ip,dhcp-lease-time,use_dhcp_lease_time,domain-name-servers,domain-name,routers,broadcast-address,Creator,Location,Environment,Owner,Department
+172.16.16.0/24,172.16.16.128,172.16.16.140,DHCP Range,Production DHCP range for workstations,false,default,NONE,,,43200,false,8.8.8.8,example.com,172.16.16.1,172.16.16.255,jmadison,demo,Production,NetworkTeam,IT
+172.16.16.0/24,172.16.16.5,172.16.16.6,Test Range,Test range with member association,false,default,MEMBER,vanhq1cdns01ipm.amfam.com,10.74.3.80,43200,false,1.1.1.1,test.com,172.16.16.1,172.16.16.255,admin,Building-A,Development,DevOps,Engineering
