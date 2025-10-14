@@ -1,0 +1,3 @@
+name,ipv6addr,view,comment,Creator,Location,Environment,Owner,Department
+extattraaaa.test.example.com,2002:10:1013::,test,Test IPv6 record with all attributes,Network Team,Data Center,Production,IT-Infrastructure,Information Technology
+test_test_v6.amfam.com,2607:f188::dead:beef:cafe:fed1,Enterprise-View,This AAAA record has a comment,jsmith,Building-A,Development,DevOps,Engineering
