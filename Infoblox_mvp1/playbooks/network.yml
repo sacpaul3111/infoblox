@@ -1,10 +1,9 @@
 ---
 # infoblox/playbooks/add/nios_network.yml
 
-- name: Set fact from JSON file data
+- name: Read network data from JSON file
   ansible.builtin.set_fact:
-    nios_network_desired: "{{ lookup('file', json_file) | from_json }}"
-    operation_type: "{{ operation | default('add') }}"
+    nios_network_desired: "{{ lookup('file', 'add/prod_changes/{{ grid_host }}/network.json') | from_json }}"
 
 - name: Define Supported DHCP Options
   ansible.builtin.set_fact:
@@ -116,11 +115,12 @@
     provider: "{{ clean_provider }}"
     network: "{{ item.network }}"
     network_view: "{{ item.network_view | default('default') }}"
+    template: "{{ item.template | default(omit) }}"
     comment: "{{ item.comment | default(omit) }}"
     options: "{{ item.options | default(omit) }}"
     extattrs: "{{ item.extattrs | default(omit) }}"
     members: "{{ item.members | default(omit) }}"
-    state: "{{ 'present' if operation_type == 'add' else 'absent' }}"
+    state: present
   loop: "{{ nios_network_desired }}"
   register: add_result
   ignore_errors: true
@@ -129,7 +129,23 @@
 - name: Display Add network errors
   ansible.builtin.debug:
     var: add_result
-  when: add_result is defined and 'failed' in add_result and add_result.failed
+  when: add_result is defined and add_result.failed | default(false)
+
+- name: Restart DHCP services on grid members
+  infoblox.nios_modules.nios_restartservices:
+    provider: "{{ clean_provider }}"
+    services:
+      - DHCP
+  when:
+    - add_result is defined
+    - not add_result.failed | default(false)
+  register: restart_result
+
+# Display restart status
+- name: Display service restart status
+  ansible.builtin.debug:
+    msg: "DHCP services restart initiated successfully"
+  when: restart_result is defined and not restart_result.failed | default(false)
 
 # Playbook completed
 - name: Playbook completed
