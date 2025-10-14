@@ -1,6 +1,2 @@
-name,canonical,view,comment,ttl,Environment,Owner,Location,Department
-www.example.com,webserver1.example.com,production,Website alias,3600,prod,teamA,DataCenter1,IT
-mail.example.com,mailserver1.example.com,production,Mail server alias,7200,prod,teamB,DataCenter1,IT
-db.example.com,dbserver1.example.com,production,Database alias,3600,prod,teamB,DataCenter2,IT
-api.example.com,appserver1.example.com,production,API endpoint alias,1800,prod,teamA,DataCenter1,IT
-test-www.example.com,testserver1.example.com,test,Test website alias,600,test,automation,Lab,QA
+name,canonical,view,comment,Creator,Location,Environment,Owner,Department
+alias.prod.example.com,server1.prod.example.com,Enterprise-View,Production alias for web server,jsmith,DataCenter-1,Production,WebTeam,IT
