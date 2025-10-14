@@ -1,0 +1,3 @@
+fqdn,view,grid_primary,stealth,network_view,ns_group,rpz_policy,rpz_severity,rpz_type,rpz_priority,soa_default_ttl,soa_expire,soa_negative_ttl,soa_refresh,soa_retry,soa_serial_number,Creator,Location,Environment,Owner,Department
+substitute,Enterprise-View,vanhq1cdns01ipm.amfam.com,false,default,,GIVEN,INFORMATIONAL,LOCAL,0,7201,2419201,901,10801,3601,16,admin,DataCenter-1,Production,SecurityTeam,IT
+substitute,Partner-HOM,vanhq1cdns01ipm.amfam.com,false,default,Homesite View Internal-NS,GIVEN,MAJOR,LOCAL,0,7201,2419201,901,10801,3601,17,jsmith,Building-A,Development,DevOps,Engineering
