@@ -883,7 +883,7 @@ post_implementation:
 generate_execution_report:
   stage: post-implementation
   needs:
-    - job: pre_implementation
+    - job: pre_check
       artifacts: true
     - job: post_implementation
       artifacts: true
@@ -969,4 +969,24 @@ generate_execution_report:
     expire_in: 1 week
   tags:
     - aws-eks-elz-ent-ens-01-01
-    
+
+collect_all_artifacts:
+  stage: post-implementation
+  needs:
+    - file_processing
+    - pre_check
+    - post_implementation
+    - generate_execution_report
+  script:
+    - mkdir -p all_artifacts
+    - cp -r infoblox_mvp1/prod_changes all_artifacts/
+    - cp -r infoblox_mvp1/robot_reports all_artifacts/
+    - cp -r input all_artifacts/
+    - ls -lR all_artifacts
+  artifacts:
+    paths:
+      - all_artifacts/
+    expire_in: 1 week
+  when: always
+  tags:
+    - aws-eks-elz-ent-ens-01-01
