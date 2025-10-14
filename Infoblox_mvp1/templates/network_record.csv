@@ -1,0 +1,2 @@
+network,network_view,comment,domain-name-servers,domain-name,dhcp-lease-time,routers,broadcast-address,members,Creator,Location,Environment,Owner,Department
+172.16.17.0/24,default,Test network with all DHCP options,1.1.1.1,example.com,115200,172.16.17.254,172.16.17.255,vanhq1cdns01ipm.amfam.com,jsmith,DataCenter-1,Production,NetworkTeam,IT
