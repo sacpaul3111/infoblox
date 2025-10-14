@@ -1,0 +1,3 @@
+ipv4addr,mac,match_client,network,network_view,name,comment,domain-name-servers,domain-name,dhcp-lease-time,routers,broadcast-address,Creator,Location,Environment,Owner,Department
+172.16.16.3,d4:32:43:33:c8:3e,MAC_ADDRESS,172.16.16.0/24,default,default_name,Production DHCP reservation,172.16.16.1,domainname,43200,172.16.16.254,172.16.16.255,jsmith,DataCenter-1,Production,NetworkTeam,IT
+172.16.16.89,00:00:00:00:00:00,RESERVED,172.16.16.0/24,default,Name,Comment,1.1.1.2,example.com,3600,172.16.16.254,172.16.16.255,jmadison,Demo,Development,DevOps,Engineering
