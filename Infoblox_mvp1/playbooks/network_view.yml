@@ -1,0 +1,31 @@
+---
+# infoblox/playbooks/add/nios_network_view.yml
+
+# This playbook manages Infobox NIOS network views.
+
+# Read network view data from JSON file
+- name: Read network view data from JSON file
+  ansible.builtin.set_fact:
+    nios_network_view_desired: "{{ lookup('file', 'add/prod_changes/{{ grid_host }}/network_view.json') | from_json }}"
+
+# Ensure NIOS network view is present
+- name: Ensure NIOS network view is present
+  infoblox.nios_modules.nios_network_view:
+    provider: "{{ clean_provider }}"
+    name: "{{ item.name }}"
+    comment: "{{ item.comment | default(omit) }}" # Omit if not present
+    extattrs: "{{ item.extattrs | default(omit) }}"
+    state: present
+  loop: "{{ nios_network_view_desired }}"
+  register: network_view_result
+
+# Display network view result
+- name: Display network view result
+  debug:
+    var: network_view_result
+  when: network_view_result is defined and 'failed' in network_view_result and network_view_result.failed
+
+# Playbook completed
+- name: Playbook completed
+  debug:
+    msg: "Playbook completed: Network view object process completed."
