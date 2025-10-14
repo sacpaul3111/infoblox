@@ -1,0 +1,75 @@
+---
+# infoblox/playbooks/add/nios_alias_record.yml
+
+# This file contains the tasks to manage infobox NIOS Alias records using WAPI and a JSON file.
+
+- name: Read Alias Record data from JSON file
+  ansible.builtin.set_fact:
+    alias_records: "{{ lookup('file', 'add/prod_changes/{{ grid_host }}/alias_record.json') | from_json }}"
+
+- name: Check if Alias Record exists
+  ansible.builtin.uri:
+    url: "https://{{ clean_provider.host }}/wapi/v{{ clean_provider.wapi_version }}/record:alias?name={{ item.name }}&view={{ item.view }}"
+    method: GET
+    user: "{{ clean_provider.username }}"
+    password: "{{ clean_provider.password }}"
+    validate_certs: false
+    return_content: true
+    headers:
+      Content-Type: "application/json"
+  register: check_result
+  loop: "{{ alias_records }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Set facts based on check result
+  ansible.builtin.set_fact:
+    record_states: "{{ record_states | default({}) | combine({item.name: {'exists': (check_result.results | selectattr('item.name', 'equalto', item.name) |
+     first).status
+      == 200 and (check_result.results | selectattr('item.name', 'equalto', item.name) | first).json | length > 0, 'ref': (check_result.results |
+       selectattr('item.name',
+      'equalto', item.name) | first).json[0]._ref | default('') if (check_result.results | selectattr('item.name', 'equalto', item.name) | first).status == 200
+       and
+      (check_result.results | selectattr('item.name', 'equalto', item.name) | first).json | length > 0 else ''}}) }}"
+  loop: "{{ alias_records }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create Alias Record if it doesn't exist
+  ansible.builtin.uri:
+    url: "https://{{ clean_provider.host }}/wapi/v{{ clean_provider.wapi_version }}/record:alias"
+    method: POST
+    user: "{{ clean_provider.username }}"
+    password: "{{ clean_provider.password }}"
+    validate_certs: false
+    body_format: json
+    body: "{{ item | to_json }}"
+    headers:
+      Content-Type: "application/json"
+    return_content: true
+    status_code: 201 # Expecting '201 Created' as a successful status code
+  register: create_result
+  when: not record_states[item.name].exists
+  loop: "{{ alias_records }}"
+  loop_control:
+    label: "{{ item.name }}"
+  changed_when: create_result.status == 201
+
+- name: Update Alias Record if it exists
+  ansible.builtin.uri:
+    url: "https://{{ clean_provider.host }}/wapi/v{{ clean_provider.wapi_version }}/{{ record_states[item.name].ref }}"
+    method: PUT
+    user: "{{ clean_provider.username }}"
+    password: "{{ clean_provider.password }}"
+    validate_certs: false
+    body_format: json
+    body: "{{ item | to_json }}"
+    headers:
+      Content-Type: "application/json"
+    return_content: true
+  register: update_result
+  when: record_states[item.name].exists
+  loop: "{{ alias_records }}"
+  loop_control:
+    label: "{{ item.name }}"
+  changed_when: update_result.status == 200
