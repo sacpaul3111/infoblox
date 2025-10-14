@@ -1,0 +1,185 @@
+# infoblox/playbooks/add/zone_rp.yml
+
+- block:
+    - name: Read Response Policy Zones data from JSON file
+      ansible.builtin.set_fact:
+        zone_rp_records: "{{ lookup('file', 'add/prod_changes/{{ grid_host }}/zone_rp.json') | from_json }}"
+
+    - name: Check if RPZ license is installed on Grid Member(s)
+      uri:
+        url: "https://{{ clean_provider.host }}/wapi/v{{ clean_provider.wapi_version }}/member:license"
+        method: GET
+        user: "{{ clean_provider.username }}"
+        password: "{{ clean_provider.password }}"
+        validate_certs: "{{ validate_certs }}"
+        return_content: true
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+      register: license_result
+
+    - name: Set fact for RPZ license status
+      ansible.builtin.set_fact:
+        rpz_license_installed: "{{ 'RPZ' in (license_result.json | map(attribute='type') | list) }}"
+
+    - name: Debug RPZ license status
+      ansible.builtin.debug:
+        msg: "RPZ license installed: {{ rpz_license_installed }}"
+
+    - name: Check if Response Policy Zone exists
+      uri:
+        url: "https://{{ provider.host }}/wapi/v{{ provider.wapi_version }}/zone_rp?fqdn={{ item.fqdn | urlencode }}&view={{ item.view | urlencode }}"
+        method: GET
+        user: "{{ provider.username }}"
+        password: "{{ provider.password }}"
+        validate_certs: "{{ validate_certs }}"
+        return_content: true
+        headers:
+          Content-Type: "application/json"
+      register: check_result
+      loop: "{{ zone_rp_records }}"
+      loop_control:
+        label: "{{ item.fqdn }}"
+      when: rpz_license_installed
+
+    - name: Set facts based on check result
+      ansible.builtin.set_fact:
+        record_states: >
+          {{
+            record_states | default({}) | combine({
+              item.fqdn: {
+                'exists': (
+                  (check_result.results | selectattr('item.fqdn', 'equalto', item.fqdn) | first).json | length > 0
+                ),
+                'ref': (
+                  (check_result.results | selectattr('item.fqdn', 'equalto', item.fqdn) | first).json[0]._ref | default('')
+                ) if (
+                  (check_result.results | selectattr('item.fqdn', 'equalto', item.fqdn) | first).json | length > 0
+                ) else ''
+              }
+            })
+          }}
+      loop: "{{ zone_rp_records }}"
+      loop_control:
+        label: "{{ item.fqdn }}"
+      when: rpz_license_installed
+
+    - name: Create Response Policy Zone if it doesn't exist
+      uri:
+        url: "https://{{ provider.host }}/wapi/v{{ provider.wapi_version }}/zone_rp"
+        method: POST
+        user: "{{ provider.username }}"
+        password: "{{ provider.password }}"
+        validate_certs: "{{ validate_certs }}"
+        body_format: json
+        body: >
+          {{
+            item
+            | combine({})
+            | dict2items
+            | rejectattr('key', 'in', non_writable_fields_create)
+            | rejectattr('value', 'equalto', None)
+            | items2dict
+          }}
+        headers:
+          Content-Type: "application/json"
+        return_content: true
+        status_code: 201  # Expecting '201 Created' as a successful status code
+      register: create_result
+      when:
+        - rpz_license_installed
+        - not record_states[item.fqdn].exists
+      loop: "{{ zone_rp_records }}"
+      loop_control:
+        label: "{{ item.fqdn }}"
+      changed_when: create_result.status == 201
+
+    - name: Debug request body for update
+      ansible.builtin.debug:
+        msg: >
+          Update request body for {{ item.fqdn }}:
+          {{
+            item
+            | combine({})
+            | dict2items
+            | selectattr('key', 'in', writable_fields_update)
+            | items2dict
+          }}
+      when:
+        - rpz_license_installed
+        - record_states[item.fqdn].exists
+      loop: "{{ zone_rp_records }}"
+      loop_control:
+        label: "{{ item.fqdn }}"
+
+    - name: Update Response Policy Zone if it exists
+      uri:
+        url: "https://{{ provider.host }}/wapi/v{{ provider.wapi_version }}/{{ record_states[item.fqdn].ref }}"
+        method: PUT
+        user: "{{ provider.username }}"
+        password: "{{ provider.password }}"
+        validate_certs: "{{ validate_certs }}"
+        body_format: json
+        body: >
+          {{
+            item
+            | combine({})
+            | dict2items
+            | selectattr('key', 'in', writable_fields_update)
+            | items2dict
+          }}
+        headers:
+          Content-Type: "application/json"
+        return_content: true
+      register: update_result
+      when:
+        - rpz_license_installed
+        - record_states[item.fqdn].exists
+      loop: "{{ zone_rp_records }}"
+      loop_control:
+        label: "{{ item.fqdn }}"
+      changed_when: update_result.status == 200
+
+  vars:
+    validate_certs: false  # Set to true if using valid SSL certificates
+
+    # Fields to exclude during creation
+    non_writable_fields_create:
+      - '_ref'
+      - 'display_domain'
+      - 'dns_soa_email'
+      - 'locked_by'
+      - 'mask_prefix'
+      - 'member_soa_serials'
+      - 'network_view'
+      - 'parent'
+      - 'primary_type'
+      - 'rpz_last_updated_time'
+      - 'rpz_priority'
+      - 'rpz_priority_end'
+      - 'rpz_type'
+      - 'fireeye_rule_mapping'  # Exclude if causing issues
+      # Add any other fields that are read-only or non-writable
+
+    # Fields to include during updates
+    writable_fields_update:
+      - 'disable'
+      - 'extattrs'
+      - 'log_rpz'
+      - 'rpz_drop_ip_rule_enabled'
+      - 'rpz_drop_ip_rule_min_prefix_length_ipv4'
+      - 'rpz_drop_ip_rule_min_prefix_length_ipv6'
+      - 'rpz_policy'
+      - 'rpz_severity'
+      - 'soa_default_ttl'
+      - 'soa_expire'
+      - 'soa_negative_ttl'
+      - 'soa_refresh'
+      - 'soa_retry'
+      - 'use_grid_zone_timer'
+      - 'use_log_rpz'
+      - 'use_record_name_policy'
+      - 'use_rpz_drop_ip_rule'
+      - 'use_soa_email'
+      # 'view' is excluded from the update
+      # Include any other fields you need to update
