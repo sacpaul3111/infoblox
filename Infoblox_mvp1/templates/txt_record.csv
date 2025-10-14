@@ -1,0 +1,3 @@
+name,text,view,comment,ttl,Creator,Location,Environment,Owner,Department
+text.test.example.com,this is raw text,test,Comment,3600,jmadison,demo,Production,DNSTeam,IT
+asdfasdf.test.example.com,asdfasf23r4asfd,test,asfasdf,7200,admin,Building-A,Development,DevOps,Engineering
