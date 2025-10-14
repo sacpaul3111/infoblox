@@ -1,0 +1,40 @@
+---
+# infoblox/playbooks/nios_ptr_record.yml
+
+# This playbook manages infoblox NIOS PTR records.
+
+
+- name: Manage Infoblox RECORD Records
+  hosts: localhost
+  gather_facts: no
+  tasks:
+
+    - name: Set fact from JSON file data
+      ansible.builtin.set_fact:
+        nios_ptr_record_desired: "{{ lookup('file', json_file) | from_json }}"
+        operation_type: "{{ operation | default('add') }}"
+
+    - name: Ensure PTR records are present
+      infoblox.nios_modules.nios_ptr_record:
+        provider: "{{ clean_provider }}"
+        name: "{{ item.name }}"
+        ptrdname: "{{ item.ptrdname }}"
+        view: "{{ item.view | default('default') }}"
+        extattrs: "{{ item.extattrs | default(omit) }}"
+        state: present
+        ipv4addr: "{{ item.ipv4addr | default(omit) if item.ipv4addr else omit }}"
+        ipv6addr: "{{ item.ipv6addr | default(omit) if item.ipv6addr else omit }}"
+        ttl: "{{ item.ttl | default(omit) }}"
+        comment: "{{ item.comment | default(omit) }}"
+      loop: "{{ nios_ptr_record_desired }}"
+      register: add_result
+      ignore_errors: true
+
+    - name: Display Add PTR record errors
+      ansible.builtin.debug:
+        var: add_result
+      when: add_result is defined and 'failed' in add_result and add_result.failed
+
+    - name: Playbook completed
+      ansible.builtin.debug:
+        msg: "Playbook completed: PTR record objects process completed."
