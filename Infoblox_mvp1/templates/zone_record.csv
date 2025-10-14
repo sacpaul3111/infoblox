@@ -1,0 +1,3 @@
+fqdn,view,comment,zone_format,ns_group,Creator,Location,Environment,Owner,Department
+test.example.com,test,Forward Mapping Zone,FORWARD,default-ns-group,jmadison,DataCenter-1,Production,DNSTeam,IT
+172.16.18.0/24,test,Authoritative IPv4 reverse-mapping zone,IPV4,default-ns-group,jmadison,DataCenter-1,Production,NetworkTeam,IT
