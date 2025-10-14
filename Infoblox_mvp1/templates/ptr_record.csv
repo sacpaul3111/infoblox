@@ -1,0 +1,3 @@
+name,ptrdname,view,ipv4addr,ipv6addr,ttl,comment,Creator,Location,Environment,Owner,Department
+8.18.16.172.in-addr.arpa,3asdf3.example.com,test,172.16.18.8,,3264,Production PTR record for web server,jmadison,demo,Production,NetworkTeam,IT
+3.2.3.8.e.1.e.a.f.f.3.b.2.0.2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.e.f.ip6.arpa,blep.example.com,test,,fe80::202:b3ff:fe1e:8323,3651,IPv6 PTR record for application server,admin,Building-A,Development,DevOps,Engineering
