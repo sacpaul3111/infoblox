@@ -1,0 +1,41 @@
+---
+# infoblox/playbooks/nios_aaaa_record.yml
+
+# This playbook manages Infoblox NIOS AAAA records.
+
+- name: Manage Infoblox AAAA Records
+  hosts: localhost
+  gather_facts: no
+  tasks:
+
+    - name: Set fact from JSON file data
+      ansible.builtin.set_fact:
+        nios_aaaa_record_desired: "{{ lookup('file', json_file) | from_json }}"
+        operation_type: "{{ operation | default('add') }}"
+
+    - name: Debug nios_aaaa_record_desired
+      ansible.builtin.debug:
+        var: nios_aaaa_record_desired
+
+    - name: Ensure AAAA records are present
+      infoblox.nios_modules.nios_aaaa_record:
+        provider: "{{ clean_provider }}"
+        name: "{{ item.name }}"
+        ipv6addr: "{{ item.ipv6addr }}"
+        comment: "{{ item.comment | default(omit) }}"
+        extattrs: "{{ item.extattrs | default(omit) }}"
+        view: "{{ item.view }}"
+        state: present
+      loop: "{{ nios_aaaa_record_desired }}"
+      register: add_result
+      ignore_errors: false
+
+    - name: Display Add AAAA record errors
+      ansible.builtin.debug:
+        var: item
+      loop: "{{ add_result.results }}"
+      when: item.failed
+
+    - name: Playbook completed
+      ansible.builtin.debug:
+        msg: "Playbook completed: AAAA record objects process completed."
