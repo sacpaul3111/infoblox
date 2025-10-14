@@ -1,3 +1,6 @@
-name,ipv4addr,view,comment,Creator,Location,Environment,Owner,Department,ttl
-test1.example.com,192.168.1.100,Enterprise-View,Production web server,jsmith,DataCenter-1,Production,IT-WebTeam,Information Technology,3600
-test2.example.com,10.0.0.50,test,Test environment - has all extensible attributes,sachinpaul,Building-A,Development,DevOps,Engineering,
+name,ipv4addr,view,comment,Environment,Owner,Location,Department
+webserver1.example.com,192.168.1.10,production,"Web server",prod,teamA,DataCenter1,IT
+dbserver1.example.com,192.168.1.11,production,"Database server",prod,teamB,DataCenter1,IT
+appserver1.example.com,192.168.1.12,production,"Application server",prod,teamA,DataCenter2,IT
+testserver1.example.com,192.168.1.20,test,"Test environment",test,automation,Lab,QA
+devserver1.example.com,10.0.1.10,development,"Development server",dev,devteam,Office,Engineering
