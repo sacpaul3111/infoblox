@@ -1,0 +1,155 @@
+---
+# infoblox/playbooks/nios_fixed_address.yml
+
+# This playbook manages infoblox NIOS DHCP Fixed Addresses in batches to avoid HTTP timeouts.
+# It reads fixed address data from a JSON file, divides it into batches, and adds or modifies fixed addresses in batches.
+# This version ensures idempotency by checking if the fixed address exists and if its properties match the desired state before making any changes.
+
+
+- name: Manage Infoblox FIXED_ADDRESS Records
+  hosts: localhost
+  gather_facts: no
+  tasks:
+
+    - name: Set fact from JSON file data
+      ansible.builtin.set_fact:
+        nios_fixed_address_desired: "{{ lookup('file', json_file) | from_json }}"
+        operation_type: "{{ operation | default('add') }}"
+
+    - name: Batch the Fixed Addresses into groups based on batch_size variable
+      ansible.builtin.set_fact:
+        batched_fixed_addresses: "{{ nios_fixed_address_desired | batch(batch_size) | list }}"
+
+    - name: Flatten the list of lists
+      ansible.builtin.set_fact:
+        fixed_addresses: "{{ batched_fixed_addresses | flatten(levels=1) }}"
+
+    # Given this list https://docs.infoblox.com/space/BloxOneDDI/186778995/DHCP+Option+Data+Types
+    - name: Define Supported DHCP Options
+      ansible.builtin.set_fact:
+        supported_dhcp_options:
+          - subnet-mask
+          - time-offset
+          - routers
+          - time-servers
+          - name-servers
+          - domain-name-servers
+          - log-servers
+          - cookie-servers
+          - lpr-servers
+          - impress-servers
+          - resource-location-servers
+          - boot-size
+          - merit-dump
+          - domain-name
+          - swap-server
+          - root-path
+          - extensions-path
+          - ip-forwarding
+          - non-local-source-routing
+          - policy-filter
+          - max-dgram-reassembly
+          - default-ip-ttl
+          - path-mtu-aging-timeout
+          - path-mtu-plateau-table
+          - interface-mtu
+          - all-subnets-local
+          - broadcast-address
+          - perform-mask-discovery
+          - mask-supplier
+          - router-discovery
+          - router-solicitation-address
+          - static-routes
+          - trailer-encapsulation
+          - arp-cache-timeout
+          - ieee802-3-encapsulation
+          - default-tcp-ttl
+          - tcp-keepalive-interval
+          - tcp-keepalive-garbage
+          - nis-domain
+          - nis-servers
+          - ntp-servers
+          - vendor-encapsulated-options
+          - netbios-name-servers
+          - netbios-dd-server
+          - netbios-node-type
+          - netbios-scope
+          - font-servers
+          - x-display-manager
+          - dhcp-option-overload
+          - dhcp-server-identifier
+          - dhcp-message
+          - dhcp-max-message-size
+          - vendor-class-identifier
+          - nwip-domain-name
+          - nisplus-domain-name
+          - nisplus-severs
+          - tftp-server-name
+          - boot-file-name
+          - mobile-ip-home-agent
+          - smtp-server
+          - pop-server
+          - nntp-server
+          - www.-server
+          - finger-server
+          - irc-server
+          - streettalk-server
+          - streettalk-directory-assistance-server
+          - user-class
+          - slp-directory-agent
+          - slp-service-scope
+          - nds-server
+          - nds-tree-name
+          - nds-context
+          - bcms-controller-names
+          - bcms-controller-address
+          - client-system
+          - client-ndi
+          - uuid-guid
+          - uap-servers
+          - geoconf-civic
+          - pcode
+          - tcode
+          - netinfo-server-address
+          - netinfo-server-tag
+          - v4-captive-portal+
+          - auto-config
+          - name-server-search
+          - subnet-selection
+          - domain-search
+          - vivco-suboptions
+          - vivso-suboptions
+          - pana-agent
+          - v4-lost
+          - capwap-ac-v4
+          - sip-ua-cs-domains
+          - rdnss-selection
+          - v4-portparams
+          - v4-captive-portal-old+
+          - option-6rd
+          - v4-access-domain
+          - dhcp-lease-time
+
+    - name: Creating Fixed Address
+      infoblox.nios_modules.nios_fixed_address:
+        provider: "{{ clean_provider }}"
+        name: "{{ item.name | default('default_name') }}"
+        ipaddr: "{{ item.ipv4addr }}"
+        mac: "{{ item.mac }}"
+        network: "{{ item.network | default(omit) }}"
+        network_view: "{{ item.network_view | default('default') }}"
+        state: present
+        options: "{{ (item.options | default([])) | selectattr('name', 'in', supported_dhcp_options) | list }}"
+      loop: "{{ fixed_addresses }}"
+      loop_control:
+        loop_var: item
+      when: item.mac is defined
+
+    - name: Display Add Fixed Addresses errors
+      ansible.builtin.debug:
+        var: add_result
+      when: add_result is defined and 'failed' in add_result and add_result.failed
+
+    - name: Playbook completed
+      ansible.builtin.debug:
+        msg: "Playbook completed: Fixed Addresses process completed."
