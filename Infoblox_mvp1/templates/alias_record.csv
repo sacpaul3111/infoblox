@@ -1,0 +1,3 @@
+name,target_name,target_type,view,comment,disable,use_ttl,Creator,Location,Environment,Owner,Department
+afsd.test.example.com,ads,A,test,First alias record pointing to A record,false,false,jsmith,DataCenter-1,Production,NetworkTeam,IT
+234afs.test.example.com,asfd234af,MX,test,Second alias pointing to MX record,false,false,admin,Building-A,Development,DevOps,Engineering
