@@ -336,11 +336,47 @@ pre_check:
         a_record)
           test_suite="infoblox_mvp1/tests/pre_check/a_record_validation.robot"
           ;;
+        aaaa_record)
+          test_suite="infoblox_mvp1/tests/pre_check/aaaa_record_validation.robot"
+          ;;
+        alias_record)
+          test_suite="infoblox_mvp1/tests/pre_check/alias_record_validation.robot"
+          ;;
         cname_record)
           test_suite="infoblox_mvp1/tests/pre_check/cname_record_validation.robot"
           ;;
+        fixed_address)
+          test_suite="infoblox_mvp1/tests/pre_check/fixed_address_validation.robot"
+          ;;
+        host_record)
+          test_suite="infoblox_mvp1/tests/pre_check/host_record_validation.robot"
+          ;;
+        mx_record)
+          test_suite="infoblox_mvp1/tests/pre_check/mx_record_validation.robot"
+          ;;
         network)
           test_suite="infoblox_mvp1/tests/pre_check/network_validation.robot"
+          ;;
+        network_range)
+          test_suite="infoblox_mvp1/tests/pre_check/network_range_validation.robot"
+          ;;
+        network_view)
+          test_suite="infoblox_mvp1/tests/pre_check/network_view_validation.robot"
+          ;;
+        ptr_record)
+          test_suite="infoblox_mvp1/tests/pre_check/ptr_record_validation.robot"
+          ;;
+        srv_record)
+          test_suite="infoblox_mvp1/tests/pre_check/srv_record_validation.robot"
+          ;;
+        txt_record)
+          test_suite="infoblox_mvp1/tests/pre_check/txt_record_validation.robot"
+          ;;
+        nios_zone|zone)
+          test_suite="infoblox_mvp1/tests/pre_check/zone_validation.robot"
+          ;;
+        zone_rp)
+          test_suite="infoblox_mvp1/tests/pre_check/zone_rp_validation.robot"
           ;;
         *)
           test_suite="infoblox_mvp1/tests/pre_check/"
@@ -676,11 +712,47 @@ post_implementation:
         a_record)
           test_suite="infoblox_mvp1/tests/post_check/a_record_verification.robot"
           ;;
+        aaaa_record)
+          test_suite="infoblox_mvp1/tests/post_check/aaaa_record_verification.robot"
+          ;;
+        alias_record)
+          test_suite="infoblox_mvp1/tests/post_check/alias_record_verification.robot"
+          ;;
         cname_record)
           test_suite="infoblox_mvp1/tests/post_check/cname_record_verification.robot"
           ;;
+        fixed_address)
+          test_suite="infoblox_mvp1/tests/post_check/fixed_address_verification.robot"
+          ;;
+        host_record)
+          test_suite="infoblox_mvp1/tests/post_check/host_record_verification.robot"
+          ;;
+        mx_record)
+          test_suite="infoblox_mvp1/tests/post_check/mx_record_verification.robot"
+          ;;
         network)
           test_suite="infoblox_mvp1/tests/post_check/network_verification.robot"
+          ;;
+        network_range)
+          test_suite="infoblox_mvp1/tests/post_check/network_range_verification.robot"
+          ;;
+        network_view)
+          test_suite="infoblox_mvp1/tests/post_check/network_view_verification.robot"
+          ;;
+        ptr_record)
+          test_suite="infoblox_mvp1/tests/post_check/ptr_record_verification.robot"
+          ;;
+        srv_record)
+          test_suite="infoblox_mvp1/tests/post_check/srv_record_verification.robot"
+          ;;
+        txt_record)
+          test_suite="infoblox_mvp1/tests/post_check/txt_record_verification.robot"
+          ;;
+        nios_zone|zone)
+          test_suite="infoblox_mvp1/tests/post_check/zone_verification.robot"
+          ;;
+        zone_rp)
+          test_suite="infoblox_mvp1/tests/post_check/zone_rp_verification.robot"
           ;;
         *)
           test_suite="infoblox_mvp1/tests/post_check/"
