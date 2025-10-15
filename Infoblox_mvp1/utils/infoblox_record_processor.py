@@ -955,62 +955,62 @@ class InfobloxRecordProcessor:
 
         return record
 
-def _process_zone(self, row: Dict[str, str]) -> Optional[Dict[str, Any]]:
-    """Process zone record"""
-    record = {}
-    extattrs = {}
+    def _process_zone(self, row: Dict[str, str]) -> Optional[Dict[str, Any]]:
+        """Process zone record"""
+        record = {}
+        extattrs = {}
 
-    fqdn = self._get_field(row, ['fqdn', 'zone', 'domain'])
-    if not fqdn:
-        return None
+        fqdn = self._get_field(row, ['fqdn', 'zone', 'domain'])
+        if not fqdn:
+            return None
 
-    # Comment comes first if present
-    comment = self._get_field(row, ['comment', 'description'])
-    if comment:
-        record['comment'] = comment
+        # Comment comes first if present
+        comment = self._get_field(row, ['comment', 'description'])
+        if comment:
+            record['comment'] = comment
 
-    # Collect extensible attributes
-    extattr_fields = ['Environment', 'Owner', 'Location', 'Department', 'Creator']
-    for field in extattr_fields:
-        value = self._get_field(row, [field, field.lower()])
-        if value:
-            extattrs[field] = value
+        # Collect extensible attributes
+        extattr_fields = ['Environment', 'Owner', 'Location', 'Department', 'Creator']
+        for field in extattr_fields:
+            value = self._get_field(row, [field, field.lower()])
+            if value:
+                extattrs[field] = value
 
-    # Add extattrs (always present in your examples)
-    if extattrs:
-        record['extattrs'] = extattrs
-    else:
-        record['extattrs'] = {}
-
-    record['fqdn'] = fqdn
-    
-    # Always include these as empty arrays
-    record['grid_primary'] = []
-    record['grid_secondaries'] = []
-
-    # View
-    view = self._get_field(row, ['view', 'dns_view'])
-    record['view'] = view if view else 'default'
-
-    # Zone format - determine based on FQDN if not specified
-    zone_format = self._get_field(row, ['zone_format', 'format', 'type'])
-    if zone_format:
-        record['zone_format'] = zone_format.upper()
-    else:
-        # Auto-detect zone format based on FQDN
-        if 'in-addr.arpa' in fqdn.lower() or '/' in fqdn:
-            record['zone_format'] = 'IPV4'
-        elif 'ip6.arpa' in fqdn.lower() or '::' in fqdn:
-            record['zone_format'] = 'IPV6'
+        # Add extattrs (always present in your examples)
+        if extattrs:
+            record['extattrs'] = extattrs
         else:
-            record['zone_format'] = 'FORWARD'
+            record['extattrs'] = {}
 
-    # Optional NS group
-    ns_group = self._get_field(row, ['ns_group', 'nameserver_group'])
-    if ns_group:
-        record['ns_group'] = ns_group
+        record['fqdn'] = fqdn
 
-    return record
+        # Always include these as empty arrays
+        record['grid_primary'] = []
+        record['grid_secondaries'] = []
+
+        # View
+        view = self._get_field(row, ['view', 'dns_view'])
+        record['view'] = view if view else 'default'
+
+        # Zone format - determine based on FQDN if not specified
+        zone_format = self._get_field(row, ['zone_format', 'format', 'type'])
+        if zone_format:
+            record['zone_format'] = zone_format.upper()
+        else:
+            # Auto-detect zone format based on FQDN
+            if 'in-addr.arpa' in fqdn.lower() or '/' in fqdn:
+                record['zone_format'] = 'IPV4'
+            elif 'ip6.arpa' in fqdn.lower() or '::' in fqdn:
+                record['zone_format'] = 'IPV6'
+            else:
+                record['zone_format'] = 'FORWARD'
+
+        # Optional NS group
+        ns_group = self._get_field(row, ['ns_group', 'nameserver_group'])
+        if ns_group:
+            record['ns_group'] = ns_group
+
+        return record
 
     def _process_alias_record(self, row: Dict[str, str]) -> Optional[Dict[str, Any]]:
         """Process alias record"""
