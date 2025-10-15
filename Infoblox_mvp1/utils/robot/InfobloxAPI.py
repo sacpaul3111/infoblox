@@ -111,6 +111,41 @@ class InfobloxAPI:
         else:
             raise Exception(f"Failed to get A records: {response.status_code}")
 
+    @keyword('Get AAAA Records')
+    def get_aaaa_records(self, name=None, view=None, ipv6addr=None):
+        """Get AAAA records from Infoblox.
+
+        Args:
+            name: Record name (optional)
+            view: DNS view (optional)
+            ipv6addr: IPv6 address (optional)
+
+        Returns:
+            list: List of AAAA records
+        """
+        params = {}
+        if name:
+            params['name'] = name
+        if view:
+            params['view'] = view
+        if ipv6addr:
+            params['ipv6addr'] = ipv6addr
+
+        response = requests.get(
+            f"{self.base_url}/record:aaaa",
+            params=params,
+            auth=(self.username, self.password),
+            verify=self.verify_certs,
+            timeout=self.timeout
+        )
+
+        if response.status_code == 200:
+            records = response.json()
+            logger.info(f"Found {len(records)} AAAA record(s)")
+            return records
+        else:
+            raise Exception(f"Failed to get AAAA records: {response.status_code}")
+
     @keyword('Get CNAME Records')
     def get_cname_records(self, name=None, view=None):
         """Get CNAME records from Infoblox.
