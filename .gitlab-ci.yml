@@ -19,15 +19,19 @@ spec:
       options:
         - "a_record"
         - "aaaa_record"
+        - "alias_record"
         - "cname_record"
         - "fixed_address"
         - "host_record"
         - "mx_record"
         - "network"
+        - "network_range"
+        - "network_view"
         - "ptr_record"
         - "srv_record"
         - "txt_record"
         - "nios_zone"
+        - "zone_rp"
     operation_type:
       type: string
       description: "Select operation: add (present state) or delete (absent state)"
