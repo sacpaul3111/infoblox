@@ -178,6 +178,309 @@ class InfobloxAPI:
         else:
             raise Exception(f"Failed to get CNAME records: {response.status_code}")
 
+    @keyword('Get Alias Records')
+    def get_alias_records(self, name=None, view=None):
+        """Get Alias records from Infoblox.
+
+        Args:
+            name: Record name (optional)
+            view: DNS view (optional)
+
+        Returns:
+            list: List of Alias records
+        """
+        params = {}
+        if name:
+            params['name'] = name
+        if view:
+            params['view'] = view
+
+        response = requests.get(
+            f"{self.base_url}/record:alias",
+            params=params,
+            auth=(self.username, self.password),
+            verify=self.verify_certs,
+            timeout=self.timeout
+        )
+
+        if response.status_code == 200:
+            records = response.json()
+            logger.info(f"Found {len(records)} Alias record(s)")
+            return records
+        else:
+            raise Exception(f"Failed to get Alias records: {response.status_code}")
+
+    @keyword('Get Host Records')
+    def get_host_records(self, name=None, view=None, ipv4addr=None):
+        """Get Host records from Infoblox.
+
+        Args:
+            name: Record name (optional)
+            view: DNS view (optional)
+            ipv4addr: IPv4 address (optional)
+
+        Returns:
+            list: List of Host records
+        """
+        params = {}
+        if name:
+            params['name'] = name
+        if view:
+            params['view'] = view
+        if ipv4addr:
+            params['ipv4addr'] = ipv4addr
+
+        response = requests.get(
+            f"{self.base_url}/record:host",
+            params=params,
+            auth=(self.username, self.password),
+            verify=self.verify_certs,
+            timeout=self.timeout
+        )
+
+        if response.status_code == 200:
+            records = response.json()
+            logger.info(f"Found {len(records)} Host record(s)")
+            return records
+        else:
+            raise Exception(f"Failed to get Host records: {response.status_code}")
+
+    @keyword('Get MX Records')
+    def get_mx_records(self, name=None, view=None):
+        """Get MX records from Infoblox.
+
+        Args:
+            name: Record name (optional)
+            view: DNS view (optional)
+
+        Returns:
+            list: List of MX records
+        """
+        params = {}
+        if name:
+            params['name'] = name
+        if view:
+            params['view'] = view
+
+        response = requests.get(
+            f"{self.base_url}/record:mx",
+            params=params,
+            auth=(self.username, self.password),
+            verify=self.verify_certs,
+            timeout=self.timeout
+        )
+
+        if response.status_code == 200:
+            records = response.json()
+            logger.info(f"Found {len(records)} MX record(s)")
+            return records
+        else:
+            raise Exception(f"Failed to get MX records: {response.status_code}")
+
+    @keyword('Get PTR Records')
+    def get_ptr_records(self, name=None, view=None, ipv4addr=None):
+        """Get PTR records from Infoblox.
+
+        Args:
+            name: Record name (optional)
+            view: DNS view (optional)
+            ipv4addr: IPv4 address (optional)
+
+        Returns:
+            list: List of PTR records
+        """
+        params = {}
+        if name:
+            params['name'] = name
+        if view:
+            params['view'] = view
+        if ipv4addr:
+            params['ipv4addr'] = ipv4addr
+
+        response = requests.get(
+            f"{self.base_url}/record:ptr",
+            params=params,
+            auth=(self.username, self.password),
+            verify=self.verify_certs,
+            timeout=self.timeout
+        )
+
+        if response.status_code == 200:
+            records = response.json()
+            logger.info(f"Found {len(records)} PTR record(s)")
+            return records
+        else:
+            raise Exception(f"Failed to get PTR records: {response.status_code}")
+
+    @keyword('Get SRV Records')
+    def get_srv_records(self, name=None, view=None):
+        """Get SRV records from Infoblox.
+
+        Args:
+            name: Record name (optional)
+            view: DNS view (optional)
+
+        Returns:
+            list: List of SRV records
+        """
+        params = {}
+        if name:
+            params['name'] = name
+        if view:
+            params['view'] = view
+
+        response = requests.get(
+            f"{self.base_url}/record:srv",
+            params=params,
+            auth=(self.username, self.password),
+            verify=self.verify_certs,
+            timeout=self.timeout
+        )
+
+        if response.status_code == 200:
+            records = response.json()
+            logger.info(f"Found {len(records)} SRV record(s)")
+            return records
+        else:
+            raise Exception(f"Failed to get SRV records: {response.status_code}")
+
+    @keyword('Get TXT Records')
+    def get_txt_records(self, name=None, view=None):
+        """Get TXT records from Infoblox.
+
+        Args:
+            name: Record name (optional)
+            view: DNS view (optional)
+
+        Returns:
+            list: List of TXT records
+        """
+        params = {}
+        if name:
+            params['name'] = name
+        if view:
+            params['view'] = view
+
+        response = requests.get(
+            f"{self.base_url}/record:txt",
+            params=params,
+            auth=(self.username, self.password),
+            verify=self.verify_certs,
+            timeout=self.timeout
+        )
+
+        if response.status_code == 200:
+            records = response.json()
+            logger.info(f"Found {len(records)} TXT record(s)")
+            return records
+        else:
+            raise Exception(f"Failed to get TXT records: {response.status_code}")
+
+    @keyword('Get Fixed Addresses')
+    def get_fixed_addresses(self, ipv4addr=None, network=None, network_view=None):
+        """Get Fixed Address records from Infoblox.
+
+        Args:
+            ipv4addr: IPv4 address (optional)
+            network: Network CIDR (optional)
+            network_view: Network view (optional)
+
+        Returns:
+            list: List of Fixed Address records
+        """
+        params = {}
+        if ipv4addr:
+            params['ipv4addr'] = ipv4addr
+        if network:
+            params['network'] = network
+        if network_view:
+            params['network_view'] = network_view
+
+        response = requests.get(
+            f"{self.base_url}/fixedaddress",
+            params=params,
+            auth=(self.username, self.password),
+            verify=self.verify_certs,
+            timeout=self.timeout
+        )
+
+        if response.status_code == 200:
+            records = response.json()
+            logger.info(f"Found {len(records)} Fixed Address record(s)")
+            return records
+        else:
+            raise Exception(f"Failed to get Fixed Address records: {response.status_code}")
+
+    @keyword('Get Network Ranges')
+    def get_network_ranges(self, network=None, start_addr=None, end_addr=None, network_view=None):
+        """Get Network Range records from Infoblox.
+
+        Args:
+            network: Network CIDR (optional)
+            start_addr: Start IP address (optional)
+            end_addr: End IP address (optional)
+            network_view: Network view (optional)
+
+        Returns:
+            list: List of Network Range records
+        """
+        params = {}
+        if network:
+            params['network'] = network
+        if start_addr:
+            params['start_addr'] = start_addr
+        if end_addr:
+            params['end_addr'] = end_addr
+        if network_view:
+            params['network_view'] = network_view
+
+        response = requests.get(
+            f"{self.base_url}/range",
+            params=params,
+            auth=(self.username, self.password),
+            verify=self.verify_certs,
+            timeout=self.timeout
+        )
+
+        if response.status_code == 200:
+            records = response.json()
+            logger.info(f"Found {len(records)} Network Range record(s)")
+            return records
+        else:
+            raise Exception(f"Failed to get Network Range records: {response.status_code}")
+
+    @keyword('Get Zone RPs')
+    def get_zone_rps(self, fqdn=None, view=None):
+        """Get Zone RP (Response Policy Zone) records from Infoblox.
+
+        Args:
+            fqdn: Zone FQDN (optional)
+            view: DNS view (optional)
+
+        Returns:
+            list: List of Zone RP records
+        """
+        params = {}
+        if fqdn:
+            params['fqdn'] = fqdn
+        if view:
+            params['view'] = view
+
+        response = requests.get(
+            f"{self.base_url}/zone_rp",
+            params=params,
+            auth=(self.username, self.password),
+            verify=self.verify_certs,
+            timeout=self.timeout
+        )
+
+        if response.status_code == 200:
+            records = response.json()
+            logger.info(f"Found {len(records)} Zone RP record(s)")
+            return records
+        else:
+            raise Exception(f"Failed to get Zone RP records: {response.status_code}")
+
     @keyword('Get Networks')
     def get_networks(self, network=None, network_view=None):
         """Get networks from Infoblox.
