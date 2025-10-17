@@ -30,7 +30,7 @@ spec:
         - "ptr_record"
         - "srv_record"
         - "txt_record"
-        - "nios_zone"
+        - "zone"
         - "zone_rp"
     operation_type:
       type: string
@@ -376,7 +376,7 @@ pre_check:
         txt_record)
           test_suite="infoblox_mvp1/tests/pre_check/txt_record_validation.robot"
           ;;
-        nios_zone|zone)
+        zone)
           test_suite="infoblox_mvp1/tests/pre_check/zone_validation.robot"
           ;;
         zone_rp)
@@ -752,7 +752,7 @@ post_implementation:
         txt_record)
           test_suite="infoblox_mvp1/tests/post_check/txt_record_verification.robot"
           ;;
-        nios_zone|zone)
+        zone)
           test_suite="infoblox_mvp1/tests/post_check/zone_verification.robot"
           ;;
         zone_rp)

@@ -545,6 +545,19 @@ class InfobloxAPI:
         else:
             raise Exception(f"Failed to get DNS zones: {response.status_code}")
 
+    @keyword('Get Zones')
+    def get_zones(self, fqdn=None, view=None):
+        """Get DNS zones from Infoblox (alias for Get DNS Zones).
+
+        Args:
+            fqdn: Zone FQDN (optional)
+            view: DNS view (optional)
+
+        Returns:
+            list: List of zones
+        """
+        return self.get_dns_zones(fqdn=fqdn, view=view)
+
     @keyword('Get Grid Members')
     def get_grid_members(self, host_name=None):
         """Get Grid Members from Infoblox.
