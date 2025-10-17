@@ -80,10 +80,10 @@ class InfobloxRecordProcessor:
             'optional': ['view', 'comment', 'ttl'],
             'output': 'txt_record.json'
         },
-        'nios_zone': {
+        'zone': {
             'required': ['fqdn'],
             'optional': ['view', 'comment', 'zone_format', 'ns_group', 'grid_primary', 'grid_secondaries'],
-            'output': 'nios_zone.json'
+            'output': 'zone.json'
         },
         'alias_record': {
             'required': ['name', 'target_name', 'target_type', 'view'],
@@ -249,7 +249,7 @@ class InfobloxRecordProcessor:
             'alias_record': self._process_alias_record,
             'srv_record': self._process_srv_record,
             'txt_record': self._process_txt_record,
-            'nios_zone': self._process_zone,
+            'zone': self._process_zone,
             'network_view': self._process_network_view,
             'zone_rp': self._process_zone_rp
 
